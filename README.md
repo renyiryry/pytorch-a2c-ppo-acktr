@@ -92,6 +92,12 @@ python main.py --env-name "PongNoFrameskip-v4" --algo ppo --use-gae --lr 2.5e-4 
 #### ACKTR
 
 ```bash
+python3 main.py --env-name "PongNoFrameskip-v4" --algo acktr --num-processes 32 --num-steps 20
+```
+
+or
+
+```bash
 python main.py --env-name "PongNoFrameskip-v4" --algo acktr --num-processes 32 --num-steps 20
 ```
 
