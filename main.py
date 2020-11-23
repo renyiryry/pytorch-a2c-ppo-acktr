@@ -25,8 +25,20 @@ assert args.algo in ['a2c', 'ppo', 'acktr']
 if args.recurrent_policy:
     assert args.algo in ['a2c', 'ppo'], \
         'Recurrent policy is not implemented for ACKTR'
+    
+print('os.path.join(args.save_dir, args.algo)')
+print(os.path.join(args.save_dir, args.algo))
+    
+print('args.log_interval')
+print(args.log_interval)
+    
+print('args.num_frames')
+print(args.num_frames)
 
 num_updates = int(args.num_frames) // args.num_steps // args.num_processes
+
+print('num_updates')
+print(num_updates)
 
 torch.manual_seed(args.seed)
 if args.cuda:
@@ -90,7 +102,15 @@ def main():
     episode_rewards = deque(maxlen=10)
 
     start = time.time()
+    
+    print('num_updates')
+    print(num_updates)
+    
     for j in range(num_updates):
+        
+        print('j')
+        print(j)
+        
         for step in range(args.num_steps):
             # Sample actions
             with torch.no_grad():
@@ -103,6 +123,10 @@ def main():
             obs, reward, done, infos = envs.step(action)
 
             for info in infos:
+                
+#                 print('info.keys()')
+#                 print(info.keys())
+                
                 if 'episode' in info.keys():
                     episode_rewards.append(info['episode']['r'])
 
