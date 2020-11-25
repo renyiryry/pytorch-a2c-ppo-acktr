@@ -69,6 +69,11 @@ def main():
         from visdom import Visdom
         viz = Visdom(port=args.port)
         win = None
+        
+#     print('args.env_name')
+#     print(args.env_name)
+    
+#     sys.exit()
 
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                         args.gamma, args.log_dir, args.add_timestep, device, False)
@@ -238,12 +243,14 @@ def main():
     print('os.getcwd()')
     print(os.getcwd())
     
-    if not os.path.isdir('./result/'):
-        os.mkdir('./result/')
+    saving_dir = './result/' + args.env_name + '/'
+    
+    if not os.path.isdir(saving_dir):
+        os.mkdir(saving_dir)
     
     import pickle
     
-    with open('./result/result.pkl', 'wb') as handle:
+    with open(saving_dir + 'result.pkl', 'wb') as handle:
         pickle.dump({'record_rewards': record_rewards}, handle)
 
 
