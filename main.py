@@ -100,12 +100,13 @@ def main():
     rollouts.to(device)
 
     episode_rewards = deque(maxlen=10)
-
-    start = time.time()
+    
+    record_rewards = []
     
     print('num_updates')
     print(num_updates)
-    
+
+    start = time.time()
     for j in range(num_updates):
         
         print('j')
@@ -129,6 +130,13 @@ def main():
                 
                 if 'episode' in info.keys():
                     episode_rewards.append(info['episode']['r'])
+                
+                    print('info[episode][r]')
+                    print(info['episode']['r'])
+                    
+                    record_rewards.append(info['episode']['r'])
+                    
+#                     sys.exit()
 
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
@@ -223,6 +231,20 @@ def main():
                                   args.algo, args.num_frames)
             except IOError:
                 pass
+            
+    print('record_rewards')
+    print(record_rewards)
+    
+    print('os.getcwd()')
+    print(os.getcwd())
+    
+    if not os.path.isdir('./result/'):
+        os.mkdir('./result/')
+    
+    import pickle
+    
+    with open('./result/result.pkl', 'wb') as handle:
+        pickle.dump({'record_rewards': record_rewards}, handle)
 
 
 if __name__ == "__main__":
