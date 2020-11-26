@@ -69,11 +69,6 @@ def main():
         from visdom import Visdom
         viz = Visdom(port=args.port)
         win = None
-        
-#     print('args.env_name')
-#     print(args.env_name)
-    
-#     sys.exit()
 
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                         args.gamma, args.log_dir, args.add_timestep, device, False)
@@ -81,6 +76,10 @@ def main():
     actor_critic = Policy(envs.observation_space.shape, envs.action_space,
         base_kwargs={'recurrent': args.recurrent_policy})
     actor_critic.to(device)
+    
+#     print('args.algo')
+#     print(args.algo)
+#     sys.exit()
 
     if args.algo == 'a2c':
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
@@ -240,10 +239,12 @@ def main():
     print('record_rewards')
     print(record_rewards)
     
-    print('os.getcwd()')
-    print(os.getcwd())
+#     print('os.getcwd()')
+#     print(os.getcwd())
     
-    saving_dir = './result/' + args.env_name + '/'
+#     saving_dir = './result/' + args.env_name + '/'
+    
+    saving_dir = './result/' + args.env_name + '/' + args.algo + '/'
     
     if not os.path.isdir(saving_dir):
         os.mkdir(saving_dir)
