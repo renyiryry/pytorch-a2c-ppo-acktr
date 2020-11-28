@@ -140,6 +140,12 @@ def main():
                     
                     record_rewards.append(info['episode']['r'])
                     
+#                     print('total_num_steps')
+#                     print(total_num_steps)
+                    
+#                     print('total_num_steps + step + 1')
+#                     print(total_num_steps + step + 1)
+                    
 #                     sys.exit()
 
             # If done then clean the history of observations.
@@ -239,20 +245,55 @@ def main():
     print('record_rewards')
     print(record_rewards)
     
-#     print('os.getcwd()')
-#     print(os.getcwd())
-    
-#     saving_dir = './result/' + args.env_name + '/'
-    
     saving_dir = './result/' + args.env_name + '/' + args.algo + '/'
     
     if not os.path.isdir(saving_dir):
-        os.mkdir(saving_dir)
+        os.makedirs(saving_dir)
     
     import pickle
     
     with open(saving_dir + 'result.pkl', 'wb') as handle:
         pickle.dump({'record_rewards': record_rewards}, handle)
+        
+    print('args.log_dir')
+    print(args.log_dir)
+    
+    print('os.listdir(args.log_dir)')
+    print(os.listdir(args.log_dir))
+    
+    saving_dir_monitor = './result_monitor/' + args.env_name + '/' + args.algo + '/'
+    
+    if not os.path.isdir(saving_dir_monitor):
+        os.makedirs(saving_dir_monitor)
+        
+    print('saving_dir_monitor')
+    print(saving_dir_monitor)
+        
+    print('os.listdir(saving_dir_monitor)')
+    print(os.listdir(saving_dir_monitor))
+    
+    import shutil
+    
+    for file_name in os.listdir(args.log_dir):
+        
+        full_file_name = os.path.join(args.log_dir, file_name)
+        
+        print('full_file_name')
+        print(full_file_name)
+        
+        print('os.path.isfile(full_file_name)')
+        print(os.path.isfile(full_file_name))
+        
+        if os.path.isfile(full_file_name):
+            shutil.copy(full_file_name, saving_dir_monitor)
+            
+        
+        
+#     full_file_name = os.path.join(src, file_name)
+#     if os.path.isfile(full_file_name):
+#         shutil.copy(full_file_name, dest)
+    
+#     sys.exit()
 
 
 if __name__ == "__main__":
