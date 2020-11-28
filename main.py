@@ -21,7 +21,9 @@ from visualize import visdom_plot
 
 args = get_args()
 
-assert args.algo in ['a2c', 'ppo', 'acktr']
+# assert args.algo in ['a2c', 'ppo', 'acktr']
+assert args.algo in ['a2c', 'ppo', 'acktr', 'kbfgs']
+
 if args.recurrent_policy:
     assert args.algo in ['a2c', 'ppo'], \
         'Recurrent policy is not implemented for ACKTR'
@@ -91,9 +93,15 @@ def main():
                          args.value_loss_coef, args.entropy_coef, lr=args.lr,
                                eps=args.eps,
                                max_grad_norm=args.max_grad_norm)
-    elif args.algo == 'acktr':
+    elif args.algo in ['acktr']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
                                args.entropy_coef, acktr=True)
+    elif args.algo in ['kbfgs']:
+        agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
+                               args.entropy_coef, kbfgs=True)
+    else:
+        print('unknown args.algo for ' + args.algo)
+        sys.exit()
 
     rollouts = RolloutStorage(args.num_steps, args.num_processes,
                         envs.observation_space.shape, envs.action_space,

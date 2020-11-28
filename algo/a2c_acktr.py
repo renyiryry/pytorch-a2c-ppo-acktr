@@ -19,7 +19,9 @@ class A2C_ACKTR():
                  kbfgs=False):
 
         self.actor_critic = actor_critic
+        
         self.acktr = acktr
+        self.kbfgs = kbfgs
 
         self.value_loss_coef = value_loss_coef
         self.entropy_coef = entropy_coef
@@ -58,11 +60,13 @@ class A2C_ACKTR():
 
         action_loss = -(advantages.detach() * action_log_probs).mean()
         
-        print('self.optimizer.Ts')
-        print(self.optimizer.Ts)
-        sys.exit()
 
-        if self.acktr and self.optimizer.steps % self.optimizer.Ts == 0:
+
+
+        print('need to remove kbfgs')
+
+#         if self.acktr and self.optimizer.steps % self.optimizer.Ts == 0:
+        if (self.acktr or self.kbfgs) and self.optimizer.steps % self.optimizer.Ts == 0:
             # Sampled fisher, see Martens 2014
             self.actor_critic.zero_grad()
             pg_fisher_loss = -action_log_probs.mean()
@@ -83,12 +87,14 @@ class A2C_ACKTR():
         
         
         
-        sys.exit()
+#         sys.exit()
         
         (value_loss * self.value_loss_coef + action_loss -
          dist_entropy * self.entropy_coef).backward()
 
-        if self.acktr == False:
+#         if self.acktr == False:
+        if self.acktr == False and self.kbfgs == False:
+        # i.e. using RMSprop
             nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                      self.max_grad_norm)
 

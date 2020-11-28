@@ -84,7 +84,7 @@ class SplitBias(nn.Module):
         return x
 
 
-class KFACOptimizer(optim.Optimizer):
+class KBFGSOptimizer(optim.Optimizer):
     def __init__(self,
                  model,
                  lr=0.25,
@@ -107,7 +107,8 @@ class KFACOptimizer(optim.Optimizer):
 
         split_bias(model)
 
-        super(KFACOptimizer, self).__init__(model.parameters(), defaults)
+#         super(KFACOptimizer, self).__init__(model.parameters(), defaults)
+        super(KBFGSOptimizer, self).__init__(model.parameters(), defaults)
 
         self.known_modules = {'Linear', 'Conv2d', 'AddBias'}
 
