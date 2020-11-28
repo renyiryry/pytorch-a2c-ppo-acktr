@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from .kfac import KFACOptimizer
+from .kbfgs import KBFGSOptimizer
 
 
 class A2C_ACKTR():
@@ -14,7 +15,8 @@ class A2C_ACKTR():
                  eps=None,
                  alpha=None,
                  max_grad_norm=None,
-                 acktr=False):
+                 acktr=False,
+                 kbfgs=False):
 
         self.actor_critic = actor_critic
         self.acktr = acktr
@@ -23,9 +25,16 @@ class A2C_ACKTR():
         self.entropy_coef = entropy_coef
 
         self.max_grad_norm = max_grad_norm
+        
+        assert acktr + kbfgs < 2
 
         if acktr:
             self.optimizer = KFACOptimizer(actor_critic)
+        elif kbfgs:
+            
+            self.optimizer = KBFGSOptimizer(actor_critic)
+            
+#             sys.exit()
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
@@ -48,6 +57,10 @@ class A2C_ACKTR():
         value_loss = advantages.pow(2).mean()
 
         action_loss = -(advantages.detach() * action_log_probs).mean()
+        
+        print('self.optimizer.Ts')
+        print(self.optimizer.Ts)
+        sys.exit()
 
         if self.acktr and self.optimizer.steps % self.optimizer.Ts == 0:
             # Sampled fisher, see Martens 2014
@@ -67,6 +80,11 @@ class A2C_ACKTR():
             self.optimizer.acc_stats = False
 
         self.optimizer.zero_grad()
+        
+        
+        
+        sys.exit()
+        
         (value_loss * self.value_loss_coef + action_loss -
          dist_entropy * self.entropy_coef).backward()
 
