@@ -12,6 +12,25 @@ from utils import AddBias
 # 2) Compute QR decomposition in a separate process
 # 3) Actually make a general KFAC optimizer so it fits PyTorch
 
+def BFGS_update(H, s, y):
+    
+    rho_inv = torch.dot(s, y)
+    
+    assert rho_inv > 0
+    
+    rho = 1 / rho_inv
+    
+    Hy = torch.mv(H, y)
+    H_new = H.data +\
+    (rho**2 * torch.dot(y, torch.mv(H, y)) + rho) * torch.ger(s, s) -\
+    rho * (torch.ger(s, Hy) + torch.ger(Hy, s))
+    
+    return H_new
+    
+    
+    
+    
+
 
 def _extract_patches(x, kernel_size, stride, padding):
     if padding[0] + padding[1] > 0:
@@ -24,6 +43,69 @@ def _extract_patches(x, kernel_size, stride, padding):
         x.size(0), x.size(1), x.size(2),
         x.size(3) * x.size(4) * x.size(5))
     return x
+
+
+def compute_mean_a(a, classname, layer_info, fast_cnn):
+#     batch_size = a.size(0)
+
+#     print('fast_cnn')
+#     print(fast_cnn)
+
+    if classname == 'Conv2d':
+        if fast_cnn:
+            
+            print('need to check')
+            sys.exit()
+            
+            a = _extract_patches(a, *layer_info)
+            a = a.view(a.size(0), -1, a.size(-1))
+            a = a.mean(1)
+        else:
+            
+#             print('a.size()')
+#             print(a.size())
+            
+            a = _extract_patches(a, *layer_info)
+            
+#             print('a.size()')
+#             print(a.size())
+            
+#             print('a.mean().size()')
+#             print(a.mean().size())
+            
+#             print('a.mean(dim=(0,1,2)).size()')
+#             print(a.mean(dim=(0,1,2)).size())
+            
+            return a.mean(dim=(0,1,2))
+            
+#             a = a.view(-1, a.size(-1)).div_(a.size(1)).div_(a.size(2))
+            
+            
+#             print('a.size()')
+#             print(a.size())
+    elif classname == 'AddBias':
+        
+        print('should not reach here')
+        sys.exit()
+        
+        is_cuda = a.is_cuda
+        a = torch.ones(a.size(0), 1)
+        if is_cuda:
+            a = a.cuda()
+            
+            
+#     print('classname')
+#     print(classname)
+            
+            
+#     print('a.size()')
+#     print(a.size())
+    
+#     print('a.mean(dim=0).size()')
+#     print(a.mean(dim=0).size())
+
+#     return a.t() @ (a / batch_size)
+    return a.mean(dim=0)
 
 
 def compute_cov_a(a, classname, layer_info, fast_cnn):
@@ -44,6 +126,77 @@ def compute_cov_a(a, classname, layer_info, fast_cnn):
             a = a.cuda()
 
     return a.t() @ (a / batch_size)
+
+# def compute_mean_g(g, classname, layer_info, fast_cnn):
+def compute_mean_g(g, classname, fast_cnn):
+    
+    
+    
+    batch_size = g.size(0)
+    
+#     print('classname')
+#     print(classname)
+    
+    
+
+    if classname == 'Conv2d':
+        
+#         print('fast_cnn')
+#         print(fast_cnn)
+        
+        if fast_cnn:
+            
+            print('need to check')
+            
+            sys.exit()
+            
+            g = g.view(g.size(0), g.size(1), -1)
+            g = g.sum(-1)
+        else:
+            
+#             print('g.size()')
+#             print(g.size())
+            
+#             print('g.mean(dim=(0,2,3)).size()')
+#             print(g.mean(dim=(0,2,3)).size())
+            
+            return g.mean(dim=(0,2,3))
+            
+#             sys.exit()
+            
+#             g = g.transpose(1, 2).transpose(2, 3).contiguous()
+            
+#             print('g.size()')
+#             print(g.size())
+            
+#             g = g.view(-1, g.size(-1)).mul_(g.size(1)).mul_(g.size(2))
+            
+#             print('g.size()')
+#             print(g.size())
+            
+#             sys.exit()
+            
+    elif classname == 'AddBias':
+        
+        print('should not reach here')
+        
+        sys.exit()
+        
+        g = g.view(g.size(0), g.size(1), -1)
+        g = g.sum(-1)
+        
+        
+#     print('g.size()')
+#     print(g.size())
+
+    g_ = g * batch_size
+    
+    
+#     print('g_.mean(dim=0).size()')
+#     print(g_.mean(dim=0).size())
+    
+#     return g_.t() @ (g_ / g.size(0))
+    return g_.mean(dim=0)
 
 
 def compute_cov_g(g, classname, layer_info, fast_cnn):
@@ -97,6 +250,9 @@ class KBFGSOptimizer(optim.Optimizer):
                  Ts=1,
                  Tf=10):
         defaults = dict()
+        
+        print('model')
+        print(model)
 
         def split_bias(module):
             for mname, child in module.named_children():
@@ -111,6 +267,8 @@ class KBFGSOptimizer(optim.Optimizer):
         super(KBFGSOptimizer, self).__init__(model.parameters(), defaults)
 
         self.known_modules = {'Linear', 'Conv2d', 'AddBias'}
+        
+        self.kbfgs_modules = {'Linear', 'Conv2d'}
 
         self.modules = []
         self.grad_outputs = {}
@@ -123,6 +281,13 @@ class KBFGSOptimizer(optim.Optimizer):
         self.m_aa, self.m_gg = {}, {}
         self.Q_a, self.Q_g = {}, {}
         self.d_a, self.d_g = {}, {}
+        
+        self.H_A = {}
+        self.H_G = {}
+        
+        self.mean_a = {}
+        self.h_G_cur = {}
+        self.g_G_cur = {}
 
         self.momentum = momentum
         self.stat_decay = stat_decay
@@ -136,6 +301,9 @@ class KBFGSOptimizer(optim.Optimizer):
 
         self.Ts = Ts
         self.Tf = Tf
+        
+#         print('self.momentum')
+#         print(self.momentum)
 
         self.optim = optim.SGD(
             model.parameters(),
@@ -143,6 +311,10 @@ class KBFGSOptimizer(optim.Optimizer):
             momentum=self.momentum)
 
     def _save_input(self, module, input):
+        
+#         print('torch.is_grad_enabled()')
+#         print(torch.is_grad_enabled())
+        
         if torch.is_grad_enabled() and self.steps % self.Ts == 0:
             classname = module.__class__.__name__
             layer_info = None
@@ -152,15 +324,31 @@ class KBFGSOptimizer(optim.Optimizer):
 
             aa = compute_cov_a(input[0].data, classname, layer_info,
                                self.fast_cnn)
+            
+            
 
             # Initialize buffers
             if self.steps == 0:
                 self.m_aa[module] = aa.clone()
 
             update_running_stat(aa, self.m_aa[module], self.stat_decay)
+            
+            mean_a = compute_mean_a(input[0].data, classname, layer_info, self.fast_cnn)
+            
+#             print('classname')
+#             print(classname)
+            
+            self.mean_a[module] = mean_a.clone()
 
     def _save_grad_output(self, module, grad_input, grad_output):
-        if self.acc_stats:
+#         if self.acc_stats:
+#         if self.kbfgs_stats:
+#         if 1:
+        if self.kbfgs_stats_cur or self.kbfgs_stats_next:
+        
+#             print('grad_output')
+#             print(grad_output)
+        
             classname = module.__class__.__name__
             layer_info = None
             if classname == 'Conv2d':
@@ -169,23 +357,49 @@ class KBFGSOptimizer(optim.Optimizer):
 
             gg = compute_cov_g(grad_output[0].data, classname, layer_info,
                                self.fast_cnn)
+            
+            
 
             # Initialize buffers
             if self.steps == 0:
                 self.m_gg[module] = gg.clone()
 
             update_running_stat(gg, self.m_gg[module], self.stat_decay)
+            
+            
+            mean_g = compute_mean_g(grad_output[0].data, classname, self.fast_cnn)
+            
+#             print('self.kbfgs_stats_cur')
+#             print(self.kbfgs_stats_cur)
+            
+            if self.kbfgs_stats_cur:
+                
+                if self.steps == 0:
+                    self.g_G_cur[module] = mean_g.clone()
+                    
+                update_running_stat(mean_g, self.g_G_cur[module], self.stat_decay)
+                
+#                 sys.exit()
+            elif self.kbfgs_stats_next:
+                sys.exit()
+            else:
+                print('should not reach here')
+                sys.exit()
 
     def _prepare_model(self):
         for module in self.model.modules():
             classname = module.__class__.__name__
+            
             if classname in self.known_modules:
+#             if classname in self.kbfgs_modules:
                 assert not ((classname in ['Linear', 'Conv2d']) and module.bias is not None), \
                                     "You must have a bias as a separate layer"
 
                 self.modules.append(module)
-                module.register_forward_pre_hook(self._save_input)
-                module.register_backward_hook(self._save_grad_output)
+        
+                if classname in self.kbfgs_modules:
+                    module.register_forward_pre_hook(self._save_input)
+                    module.register_backward_hook(self._save_grad_output)
 
     def step(self):
         # Add weight decay
@@ -198,13 +412,81 @@ class KBFGSOptimizer(optim.Optimizer):
             assert len(list(m.parameters())
                        ) == 1, "Can handle only one parameter at the moment"
             classname = m.__class__.__name__
+            
+#             print('classname')
+#             print(classname)
+            
             p = next(m.parameters())
 
             la = self.damping + self.weight_decay
+            
+            if classname == 'Conv2d':
+                p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
+            else:
+                p_grad_mat = p.grad.data
+            
+            if classname == 'AddBias':
+#                 print('use sgd')
+                
+#                 updates[p] = p.grad.data / la
+                updates[p] = p.grad.data
+                continue
+            
+            # compute BFGS here
+            
+            # initialize H
+            
+            if self.steps == 0:
+                self.H_A[m] = torch.eye(self.m_aa[m].size(0))
+                
+                print('self.g_G_cur[m].size()')
+                print(self.g_G_cur[m].size())
+                
+#                 sys.exit()
+                
+                self.H_G[m] = torch.eye(self.g_G_cur[m].size(0))
+                
+                print('need cuda?')
+            
+            # need s, y
+            
+            # for A
+            
+#             print('self.m_aa[m].size()')
+#             print(self.m_aa[m].size())
+            
+            # compute s
+            
+#             s_A = self.s_A[m]
+            s_A = torch.mv(self.H_A[m], self.mean_a[m])
+            
+            # compute y
+            
+#             print('la')
+#             print(la)
+            
+            y_A = torch.mv(self.m_aa[m], s_A) + math.sqrt(la) * s_A
+            
+            # compute H_A
+            self.H_A[m] = BFGS_update(self.H_A[m].data, s_A.data, y_A.data)
+        
+            
+            
+            # for G
+            
+            # compute s
+            
+#             self.h_G[m]
+            
+            # compute y
 
-            if self.steps % self.Tf == 0:
+#             if self.steps % self.Tf == 0:
+            if 0:
                 # My asynchronous implementation exists, I will add it later.
                 # Experimenting with different ways to this in PyTorch.
+                
+                # use eigen decompostion to compute inverse
+                # damping is included when computing direction
                 self.d_a[m], self.Q_a[m] = torch.symeig(
                     self.m_aa[m], eigenvectors=True)
                 self.d_g[m], self.Q_g[m] = torch.symeig(
@@ -213,18 +495,22 @@ class KBFGSOptimizer(optim.Optimizer):
                 self.d_a[m].mul_((self.d_a[m] > 1e-6).float())
                 self.d_g[m].mul_((self.d_g[m] > 1e-6).float())
 
-            if classname == 'Conv2d':
-                p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
-            else:
-                p_grad_mat = p.grad.data
+            
+                
+#             v1 = self.H_G[m].t() @ p_grad_mat @ self.H_A[m]
+            v = self.H_G[m].t() @ p_grad_mat @ self.H_A[m]
 
-            v1 = self.Q_g[m].t() @ p_grad_mat @ self.Q_a[m]
-            v2 = v1 / (
-                self.d_g[m].unsqueeze(1) * self.d_a[m].unsqueeze(0) + la)
-            v = self.Q_g[m] @ v2 @ self.Q_a[m].t()
+            # @ is matmul
+#             v1 = self.Q_g[m].t() @ p_grad_mat @ self.Q_a[m]
+            
+#             v2 = v1 / (
+#                 self.d_g[m].unsqueeze(1) * self.d_a[m].unsqueeze(0) + la)
+#             v = self.Q_g[m] @ v2 @ self.Q_a[m].t()
 
             v = v.view(p.grad.data.size())
             updates[p] = v
+            
+#         sys.exit()
 
         vg_sum = 0
         for p in self.model.parameters():

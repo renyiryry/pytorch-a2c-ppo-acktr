@@ -16,7 +16,8 @@ class A2C_ACKTR():
                  alpha=None,
                  max_grad_norm=None,
                  acktr=False,
-                 kbfgs=False):
+                 kbfgs=False,
+                 if_homo=False):
 
         self.actor_critic = actor_critic
         
@@ -31,12 +32,10 @@ class A2C_ACKTR():
         assert acktr + kbfgs < 2
 
         if acktr:
-            self.optimizer = KFACOptimizer(actor_critic)
+            self.optimizer = KFACOptimizer(actor_critic, if_homo=if_homo)
         elif kbfgs:
             
             self.optimizer = KBFGSOptimizer(actor_critic)
-            
-#             sys.exit()
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
@@ -63,10 +62,10 @@ class A2C_ACKTR():
 
 
 
-        print('need to remove kbfgs')
+#         print('need to remove kbfgs')
 
-#         if self.acktr and self.optimizer.steps % self.optimizer.Ts == 0:
-        if (self.acktr or self.kbfgs) and self.optimizer.steps % self.optimizer.Ts == 0:
+        if self.acktr and self.optimizer.steps % self.optimizer.Ts == 0:
+#         if (self.acktr or self.kbfgs) and self.optimizer.steps % self.optimizer.Ts == 0:
             # Sampled fisher, see Martens 2014
             self.actor_critic.zero_grad()
             pg_fisher_loss = -action_log_probs.mean()
@@ -82,15 +81,24 @@ class A2C_ACKTR():
             self.optimizer.acc_stats = True
             fisher_loss.backward(retain_graph=True)
             self.optimizer.acc_stats = False
+            
+        if self.kbfgs:
+            self.optimizer.acc_stats = False
+            
+            self.optimizer.kbfgs_stats = True
+            
+            self.optimizer.kbfgs_stats_cur = True
+            self.optimizer.kbfgs_stats_next = False
 
         self.optimizer.zero_grad()
         
-        
-        
-#         sys.exit()
+#         print('begin compute actual grad')
         
         (value_loss * self.value_loss_coef + action_loss -
          dist_entropy * self.entropy_coef).backward()
+        
+#         print('self.optimizer.m_aa')
+#         print(self.optimizer.m_aa)
 
 #         if self.acktr == False:
         if self.acktr == False and self.kbfgs == False:
@@ -99,5 +107,7 @@ class A2C_ACKTR():
                                      self.max_grad_norm)
 
         self.optimizer.step()
+        
+#         sys.exit()
 
         return value_loss.item(), action_loss.item(), dist_entropy.item()
