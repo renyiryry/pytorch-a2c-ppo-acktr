@@ -22,7 +22,8 @@ from visualize import visdom_plot
 args = get_args()
 
 # assert args.algo in ['a2c', 'ppo', 'acktr']
-assert args.algo in ['a2c', 'ppo', 'acktr', 'kbfgs']
+# assert args.algo in ['a2c', 'ppo', 'acktr', 'kbfgs']
+assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs']
 
 if args.recurrent_policy:
     assert args.algo in ['a2c', 'ppo'], \
@@ -96,9 +97,12 @@ def main():
     elif args.algo in ['acktr']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
                                args.entropy_coef, acktr=True)
+    elif args.algo in ['acktr-homo']:
+        agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
+                               args.entropy_coef, acktr=True, if_homo=True)
     elif args.algo in ['kbfgs']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, kbfgs=True)
+                               args.entropy_coef, kbfgs=True, if_homo=True)
     else:
         print('unknown args.algo for ' + args.algo)
         sys.exit()
