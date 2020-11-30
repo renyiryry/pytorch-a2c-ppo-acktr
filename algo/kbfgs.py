@@ -12,9 +12,55 @@ from utils import AddBias
 # 2) Compute QR decomposition in a separate process
 # 3) Actually make a general KFAC optimizer so it fits PyTorch
 
+
+def double_damping(s, y, H, damping):
+    # DD_v2
+    
+    
+    # first step
+    
+    mu_1 = 0.2
+    
+    s_T_y = torch.dot(s, y)
+    
+    Hy = torch.mv(H ,y)
+    
+    yHy = torch.dot(y, Hy)
+    
+    sy_over_yHy_before = s_T_y.item() / yHy.item()
+    
+#     if sy_over_yHy_before > alpha:
+#         theta = 1
+#         damping_status = 0
+#         1
+#     else:
+        
+    if sy_over_yHy_before <= mu_1:
+        theta =  ((1-mu_1) * yHy / (yHy - s_T_y)).item()
+
+#         original_s_l_a = s_l_a
+
+        s = theta * s + (1-theta) * Hy
+
+#         damping_status = 1
+    
+    # second step
+    
+#     alpla = math.sqrt(damping)
+    mu_2 = damping
+    
+    y = y + mu_2 * s
+    
+    return s, y
+
 def BFGS_update(H, s, y):
     
     rho_inv = torch.dot(s, y)
+    
+    if not (rho_inv > 0):
+        print('rho_inv')
+        print(rho_inv)
+        sys.exit()
     
     assert rho_inv > 0
     
@@ -420,6 +466,8 @@ class KBFGSOptimizer(optim.Optimizer):
                     module.register_forward_hook(self._save_output)
                     module.register_backward_hook(self._save_grad_output)
                     
+    
+                    
                     
     def post_step(self):
         
@@ -429,8 +477,12 @@ class KBFGSOptimizer(optim.Optimizer):
             
             classname = m.__class__.__name__
             
+            
+            
             if classname == 'AddBias':
                 continue
+                
+            la = self.damping + self.weight_decay
             
             
             # compute BFGS for G here
@@ -439,21 +491,31 @@ class KBFGSOptimizer(optim.Optimizer):
             
             # for G
             
-            # compute s
-            
-#             print('self.g_G_cur[m].size()')
-#             print(self.g_G_cur[m].size())
-            
-#             print('self.g_G_next[m].size()')
-#             print(self.g_G_next[m].size())
-            
-            # compute y
+            # compute s, y
             
 #             print('self.h_G_cur[m].size()')
 #             print(self.h_G_cur[m].size())
             
 #             print('self.h_G_next[m].size()')
 #             print(self.h_G_next[m].size())
+            
+            s_G = self.h_G_next[m] - self.h_G_cur[m]
+            
+            y_G = self.g_G_next[m] - self.g_G_cur[m]
+        
+            s_G, y_G = double_damping(s_G.data, y_G.data, self.H_G[m].data, math.sqrt(la))
+            
+#             print('torch.dot(s_G, s_G) / torch.dot(s_G, y_G)')
+#             print(torch.dot(s_G, s_G) / torch.dot(s_G, y_G))
+            
+#             print('1 / math.sqrt(la)')
+#             print(1 / math.sqrt(la))
+            
+#             assert torch.dot(s_G, s_G) / torch.dot(s_G, y_G) <= 1 / math.sqrt(la)
+
+            self.H_G[m] = BFGS_update(self.H_G[m].data, s_G.data, y_G.data)
+            
+            
             
 #             sys.exit()
 
@@ -515,9 +577,6 @@ class KBFGSOptimizer(optim.Optimizer):
             s_A = torch.mv(self.H_A[m], self.mean_a[m])
             
             # compute y
-            
-#             print('la')
-#             print(la)
             
             y_A = torch.mv(self.m_aa[m], s_A) + math.sqrt(la) * s_A
             
