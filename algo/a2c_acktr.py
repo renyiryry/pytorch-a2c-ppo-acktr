@@ -36,6 +36,8 @@ class A2C_ACKTR():
         elif kbfgs:
             
             self.optimizer = KBFGSOptimizer(actor_critic)
+            
+#             self.rollouts = rollouts
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
@@ -106,8 +108,34 @@ class A2C_ACKTR():
             nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                      self.max_grad_norm)
 
+        # this is the KBFGS / KFAC / RMSprop step
         self.optimizer.step()
         
-#         sys.exit()
+        # post update, another forward/backward pass
+        if self.kbfgs:
+            # perform another forward/backward pass
+            
+            values_next, action_log_probs_next, dist_entropy_next, _ = self.actor_critic.evaluate_actions(
+                rollouts.obs[:-1].view(-1, *obs_shape),
+                rollouts.recurrent_hidden_states[0].view(-1, self.actor_critic.recurrent_hidden_state_size),
+                rollouts.masks[:-1].view(-1, 1),
+                rollouts.actions.view(-1, action_shape))
+            
+            values_next = values_next.view(num_steps, num_processes, 1)
+            action_log_probs_next = action_log_probs_next.view(num_steps, num_processes, 1)
+            
+#             print('rollouts.returns[:-1].size()')
+#             print(rollouts.returns[:-1].size())
+            
+#             print('values_next.size()')
+#             print(values_next.size())
+        
+            advantages_next = rollouts.returns[:-1] - values_next
+            value_loss_next = advantages_next.pow(2).mean()
+            
+            action_loss_next = -(advantages_next.detach() * action_log_probs_next).mean()
+
+            (value_loss_next * self.value_loss_coef + action_loss_next -
+             dist_entropy_next * self.entropy_coef).backward()
 
         return value_loss.item(), action_loss.item(), dist_entropy.item()
