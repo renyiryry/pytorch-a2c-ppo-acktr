@@ -111,9 +111,12 @@ class A2C_ACKTR():
         # this is the KBFGS / KFAC / RMSprop step
         self.optimizer.step()
         
-        # post update, another forward/backward pass
+        # post update
         if self.kbfgs:
             # perform another forward/backward pass
+            
+            self.optimizer.kbfgs_stats_cur = False
+            self.optimizer.kbfgs_stats_next = True
             
             values_next, action_log_probs_next, dist_entropy_next, _ = self.actor_critic.evaluate_actions(
                 rollouts.obs[:-1].view(-1, *obs_shape),
@@ -137,5 +140,8 @@ class A2C_ACKTR():
 
             (value_loss_next * self.value_loss_coef + action_loss_next -
              dist_entropy_next * self.entropy_coef).backward()
+            
+            
+            self.optimizer.post_step()
 
         return value_loss.item(), action_loss.item(), dist_entropy.item()

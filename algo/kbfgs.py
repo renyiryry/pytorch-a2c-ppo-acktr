@@ -288,6 +288,7 @@ class KBFGSOptimizer(optim.Optimizer):
         self.mean_a = {}
         self.h_G_cur = {}
         self.g_G_cur = {}
+        self.g_G_next = {}
 
         self.momentum = momentum
         self.stat_decay = stat_decay
@@ -378,10 +379,15 @@ class KBFGSOptimizer(optim.Optimizer):
                     self.g_G_cur[module] = mean_g.clone()
                     
                 update_running_stat(mean_g, self.g_G_cur[module], self.stat_decay)
+            elif self.kbfgs_stats_next:
+                
+#                 if self.steps == 0:
+                if self.steps == 1:
+                    self.g_G_next[module] = mean_g.clone()
+                    
+                update_running_stat(mean_g, self.g_G_next[module], self.stat_decay)
                 
 #                 sys.exit()
-            elif self.kbfgs_stats_next:
-                sys.exit()
             else:
                 print('should not reach here')
                 sys.exit()
@@ -400,6 +406,34 @@ class KBFGSOptimizer(optim.Optimizer):
                 if classname in self.kbfgs_modules:
                     module.register_forward_pre_hook(self._save_input)
                     module.register_backward_hook(self._save_grad_output)
+                    
+                    
+    def post_step(self):
+        
+        for i, m in enumerate(self.modules):
+            assert len(list(m.parameters())
+                       ) == 1, "Can handle only one parameter at the moment"
+            
+            
+            # compute BFGS for G here
+            
+            # need s, y
+            
+            # for G
+            
+            # compute s
+            
+            print('self.g_G_cur[m].size()')
+            print(self.g_G_cur[m].size())
+            
+            print('self.g_G_next[m].size()')
+            print(self.g_G_next[m].size())
+            
+#             sys.exit()
+            
+            # compute y
+        
+            sys.exit()
 
     def step(self):
         # Add weight decay
@@ -431,22 +465,23 @@ class KBFGSOptimizer(optim.Optimizer):
 #                 updates[p] = p.grad.data / la
                 updates[p] = p.grad.data
                 continue
-            
-            # compute BFGS here
-            
+        
+        
             # initialize H
             
             if self.steps == 0:
                 self.H_A[m] = torch.eye(self.m_aa[m].size(0))
                 
-                print('self.g_G_cur[m].size()')
-                print(self.g_G_cur[m].size())
-                
-#                 sys.exit()
+#                 print('self.g_G_cur[m].size()')
+#                 print(self.g_G_cur[m].size())
                 
                 self.H_G[m] = torch.eye(self.g_G_cur[m].size(0))
                 
                 print('need cuda?')
+            
+            # compute BFGS for A here
+            
+            
             
             # need s, y
             
@@ -472,13 +507,7 @@ class KBFGSOptimizer(optim.Optimizer):
         
             
             
-            # for G
             
-            # compute s
-            
-#             self.h_G[m]
-            
-            # compute y
 
 #             if self.steps % self.Tf == 0:
             if 0:
@@ -524,5 +553,11 @@ class KBFGSOptimizer(optim.Optimizer):
             p.grad.data.copy_(v)
             p.grad.data.mul_(nu)
 
+        # this is the SGD step
         self.optim.step()
+        
+        
+        
         self.steps += 1
+        
+        
