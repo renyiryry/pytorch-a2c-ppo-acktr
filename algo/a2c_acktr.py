@@ -97,8 +97,6 @@ class A2C_ACKTR():
 
         self.optimizer.zero_grad()
         
-#         print('begin compute actual grad')
-        
         (value_loss * self.value_loss_coef + action_loss -
          dist_entropy * self.entropy_coef).backward()
         
@@ -140,6 +138,8 @@ class A2C_ACKTR():
             value_loss_next = advantages_next.pow(2).mean()
             
             action_loss_next = -(advantages_next.detach() * action_log_probs_next).mean()
+            
+            self.optimizer.zero_grad()
 
             (value_loss_next * self.value_loss_coef + action_loss_next -
              dist_entropy_next * self.entropy_coef).backward()
