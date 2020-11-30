@@ -32,12 +32,10 @@ class A2C_ACKTR():
         assert acktr + kbfgs < 2
 
         if acktr:
-            self.optimizer = KFACOptimizer(actor_critic, if_homo=if_homo)
+            self.optimizer = KFACOptimizer(actor_critic, damping=eps, if_homo=if_homo)
         elif kbfgs:
             
-            self.optimizer = KBFGSOptimizer(actor_critic)
-            
-#             self.rollouts = rollouts
+            self.optimizer = KBFGSOptimizer(actor_critic, damping=eps)
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
