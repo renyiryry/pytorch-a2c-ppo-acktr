@@ -55,12 +55,16 @@ def double_damping(s, y, H, damping):
 
 def BFGS_update(H, s, y):
     
-    rho_inv = torch.dot(s, y)
+    rho_inv = torch.dot(s, y).item()
     
-    if not (rho_inv > 0):
-        print('rho_inv')
-        print(rho_inv)
+    if math.isnan(rho_inv):
+        print('rho_inv is nan')
         sys.exit()
+    
+#     if not (rho_inv > 0):
+#         print('rho_inv')
+#         print(rho_inv)
+#         sys.exit()
     
     assert rho_inv > 0
     
