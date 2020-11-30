@@ -129,21 +129,34 @@ def compute_cov_a(a, classname, layer_info, fast_cnn):
 
 # def compute_mean_g(g, classname, layer_info, fast_cnn):
 def compute_mean_g(g, classname, fast_cnn):
-    
-    
-    
     batch_size = g.size(0)
     
-#     print('classname')
-#     print(classname)
-    
-    
-
     if classname == 'Conv2d':
+        if fast_cnn:
+            
+            print('need to check')
+            
+            sys.exit()
+            
+            g = g.view(g.size(0), g.size(1), -1)
+            g = g.sum(-1)
+        else:
+            return g.mean(dim=(0,2,3))
+    elif classname == 'AddBias':
+        print('should not reach here')
+        sys.exit()
         
-#         print('fast_cnn')
-#         print(fast_cnn)
-        
+        g = g.view(g.size(0), g.size(1), -1)
+        g = g.sum(-1)
+
+    g_ = g * batch_size
+
+    return g_.mean(dim=0)
+
+def compute_mean_h(h, classname, fast_cnn):
+#     batch_size = h.size(0)
+    
+    if classname == 'Conv2d':
         if fast_cnn:
             
             print('need to check')
@@ -154,49 +167,18 @@ def compute_mean_g(g, classname, fast_cnn):
             g = g.sum(-1)
         else:
             
-#             print('g.size()')
-#             print(g.size())
+#             print('h.size()')
+#             print(h.size())
             
-#             print('g.mean(dim=(0,2,3)).size()')
-#             print(g.mean(dim=(0,2,3)).size())
-            
-            return g.mean(dim=(0,2,3))
-            
-#             sys.exit()
-            
-#             g = g.transpose(1, 2).transpose(2, 3).contiguous()
-            
-#             print('g.size()')
-#             print(g.size())
-            
-#             g = g.view(-1, g.size(-1)).mul_(g.size(1)).mul_(g.size(2))
-            
-#             print('g.size()')
-#             print(g.size())
-            
-#             sys.exit()
-            
+            return h.mean(dim=(0,2,3))
     elif classname == 'AddBias':
-        
         print('should not reach here')
-        
         sys.exit()
         
         g = g.view(g.size(0), g.size(1), -1)
         g = g.sum(-1)
-        
-        
-#     print('g.size()')
-#     print(g.size())
 
-    g_ = g * batch_size
-    
-    
-#     print('g_.mean(dim=0).size()')
-#     print(g_.mean(dim=0).size())
-    
-#     return g_.t() @ (g_ / g.size(0))
-    return g_.mean(dim=0)
+    return h.mean(dim=0)
 
 
 def compute_cov_g(g, classname, layer_info, fast_cnn):
@@ -287,6 +269,7 @@ class KBFGSOptimizer(optim.Optimizer):
         
         self.mean_a = {}
         self.h_G_cur = {}
+        self.h_G_next = {}
         self.g_G_cur = {}
         self.g_G_next = {}
 
@@ -346,6 +329,37 @@ class KBFGSOptimizer(optim.Optimizer):
             mean_a = compute_mean_a(input[0].data, classname, layer_info, self.fast_cnn)
             
             self.mean_a[module] = mean_a.clone()
+            
+
+    def _save_output(self, module, input, output):
+        
+        if torch.is_grad_enabled() and (self.kbfgs_stats_cur or self.kbfgs_stats_next):
+        
+            classname = module.__class__.__name__
+            
+#             print('output.size()')
+#             print(output.size())
+            
+            
+#             mean_h = compute_mean_h(output[0].data, classname, self.fast_cnn)
+            mean_h = compute_mean_h(output.data, classname, self.fast_cnn)
+            
+            if self.kbfgs_stats_cur:
+                
+                if self.steps == 0:
+                    self.h_G_cur[module] = mean_h.clone()
+                    
+                update_running_stat(mean_h, self.h_G_cur[module], self.stat_decay)
+            elif self.kbfgs_stats_next:
+                
+#                 if self.steps == 0:
+                if self.steps == 1:
+                    self.h_G_next[module] = mean_h.clone()
+                    
+                update_running_stat(mean_h, self.h_G_next[module], self.stat_decay)
+            else:
+                print('should not reach here')
+                sys.exit()
 
     def _save_grad_output(self, module, grad_input, grad_output):
 #         if self.acc_stats:
@@ -353,31 +367,25 @@ class KBFGSOptimizer(optim.Optimizer):
 #         if 1:
         if self.kbfgs_stats_cur or self.kbfgs_stats_next:
         
-#             print('grad_output')
-#             print(grad_output)
-        
             classname = module.__class__.__name__
-            layer_info = None
-            if classname == 'Conv2d':
-                layer_info = (module.kernel_size, module.stride,
-                              module.padding)
+#             layer_info = None
+#             if classname == 'Conv2d':
+#                 layer_info = (module.kernel_size, module.stride,
+#                               module.padding)
 
-            gg = compute_cov_g(grad_output[0].data, classname, layer_info,
-                               self.fast_cnn)
+#             gg = compute_cov_g(grad_output[0].data, classname, layer_info,
+#                                self.fast_cnn)
             
             
 
             # Initialize buffers
-            if self.steps == 0:
-                self.m_gg[module] = gg.clone()
+#             if self.steps == 0:
+#                 self.m_gg[module] = gg.clone()
 
-            update_running_stat(gg, self.m_gg[module], self.stat_decay)
+#             update_running_stat(gg, self.m_gg[module], self.stat_decay)
             
             
             mean_g = compute_mean_g(grad_output[0].data, classname, self.fast_cnn)
-            
-#             print('self.kbfgs_stats_cur')
-#             print(self.kbfgs_stats_cur)
             
             if self.kbfgs_stats_cur:
                 
@@ -392,8 +400,6 @@ class KBFGSOptimizer(optim.Optimizer):
                     self.g_G_next[module] = mean_g.clone()
                     
                 update_running_stat(mean_g, self.g_G_next[module], self.stat_decay)
-                
-#                 sys.exit()
             else:
                 print('should not reach here')
                 sys.exit()
@@ -411,6 +417,7 @@ class KBFGSOptimizer(optim.Optimizer):
         
                 if classname in self.kbfgs_modules:
                     module.register_forward_pre_hook(self._save_input)
+                    module.register_forward_hook(self._save_output)
                     module.register_backward_hook(self._save_grad_output)
                     
                     
@@ -441,6 +448,14 @@ class KBFGSOptimizer(optim.Optimizer):
 #             print(self.g_G_next[m].size())
             
             # compute y
+            
+#             print('self.h_G_cur[m].size()')
+#             print(self.h_G_cur[m].size())
+            
+#             print('self.h_G_next[m].size()')
+#             print(self.h_G_next[m].size())
+            
+#             sys.exit()
 
     def step(self):
         # Add weight decay
