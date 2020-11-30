@@ -46,6 +46,10 @@ class A2C_ACKTR():
         obs_shape = rollouts.obs.size()[2:]
         action_shape = rollouts.actions.size()[-1]
         num_steps, num_processes, _ = rollouts.rewards.size()
+        
+        if self.kbfgs:
+            self.optimizer.kbfgs_stats_cur = True
+            self.optimizer.kbfgs_stats_next = False
 
         values, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
             rollouts.obs[:-1].view(-1, *obs_shape),
@@ -89,8 +93,7 @@ class A2C_ACKTR():
             
             self.optimizer.kbfgs_stats = True
             
-            self.optimizer.kbfgs_stats_cur = True
-            self.optimizer.kbfgs_stats_next = False
+            
 
         self.optimizer.zero_grad()
         
@@ -143,5 +146,7 @@ class A2C_ACKTR():
             
             
             self.optimizer.post_step()
+            
+#             sys.exit()
 
         return value_loss.item(), action_loss.item(), dist_entropy.item()

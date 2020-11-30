@@ -316,7 +316,16 @@ class KBFGSOptimizer(optim.Optimizer):
 #         print('torch.is_grad_enabled()')
 #         print(torch.is_grad_enabled())
         
-        if torch.is_grad_enabled() and self.steps % self.Ts == 0:
+        
+        
+        # When sample, torch.no_grad is used
+        # When optimizing, only one forward pass for kfac
+#         if torch.is_grad_enabled() and self.steps % self.Ts == 0:
+        if torch.is_grad_enabled() and self.steps % self.Ts == 0 and self.kbfgs_stats_cur:
+            
+#             print('self.kbfgs_stats_cur')
+#             print(self.kbfgs_stats_cur)
+            
             classname = module.__class__.__name__
             layer_info = None
             if classname == 'Conv2d':
@@ -335,9 +344,6 @@ class KBFGSOptimizer(optim.Optimizer):
             update_running_stat(aa, self.m_aa[module], self.stat_decay)
             
             mean_a = compute_mean_a(input[0].data, classname, layer_info, self.fast_cnn)
-            
-#             print('classname')
-#             print(classname)
             
             self.mean_a[module] = mean_a.clone()
 
@@ -414,6 +420,11 @@ class KBFGSOptimizer(optim.Optimizer):
             assert len(list(m.parameters())
                        ) == 1, "Can handle only one parameter at the moment"
             
+            classname = m.__class__.__name__
+            
+            if classname == 'AddBias':
+                continue
+            
             
             # compute BFGS for G here
             
@@ -423,17 +434,13 @@ class KBFGSOptimizer(optim.Optimizer):
             
             # compute s
             
-            print('self.g_G_cur[m].size()')
-            print(self.g_G_cur[m].size())
+#             print('self.g_G_cur[m].size()')
+#             print(self.g_G_cur[m].size())
             
-            print('self.g_G_next[m].size()')
-            print(self.g_G_next[m].size())
-            
-#             sys.exit()
+#             print('self.g_G_next[m].size()')
+#             print(self.g_G_next[m].size())
             
             # compute y
-        
-            sys.exit()
 
     def step(self):
         # Add weight decay
@@ -446,9 +453,6 @@ class KBFGSOptimizer(optim.Optimizer):
             assert len(list(m.parameters())
                        ) == 1, "Can handle only one parameter at the moment"
             classname = m.__class__.__name__
-            
-#             print('classname')
-#             print(classname)
             
             p = next(m.parameters())
 
