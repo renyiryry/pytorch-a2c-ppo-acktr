@@ -85,6 +85,12 @@ def main():
 #     sys.exit()
 
     if args.algo == 'a2c':
+        
+#         print('args.eps')
+#         print(args.eps)
+        
+#         sys.exit()
+        
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
                                args.entropy_coef, lr=args.lr,
                                eps=args.eps, alpha=args.alpha,
@@ -96,13 +102,17 @@ def main():
                                max_grad_norm=args.max_grad_norm)
     elif args.algo in ['acktr']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, acktr=True)
+                               args.entropy_coef, eps=args.eps, acktr=True)
     elif args.algo in ['acktr-homo']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, acktr=True, if_homo=True)
+                               args.entropy_coef, eps=args.eps, acktr=True, if_homo=True)
     elif args.algo in ['kbfgs']:
+        
+#         print('args.eps')
+#         print(args.eps)
+        
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, kbfgs=True, if_homo=True)
+                               args.entropy_coef, eps=args.eps, kbfgs=True, if_homo=True)
     else:
         print('unknown args.algo for ' + args.algo)
         sys.exit()
@@ -157,8 +167,6 @@ def main():
                     
 #                     print('total_num_steps + step + 1')
 #                     print(total_num_steps + step + 1)
-                    
-#                     sys.exit()
 
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
@@ -273,7 +281,11 @@ def main():
     print('os.listdir(args.log_dir)')
     print(os.listdir(args.log_dir))
     
-    saving_dir_monitor = './result_monitor/' + args.env_name + '/' + args.algo + '/'
+#     saving_dir_monitor = './result_monitor/' + args.env_name + '/' + args.algo + '/'
+    saving_dir_monitor = './result_monitor/' +\
+    args.env_name + '/' +\
+    args.algo + '/' +\
+    'eps_' + str(args.eps) + '/' 
     
     if not os.path.isdir(saving_dir_monitor):
         os.makedirs(saving_dir_monitor)
