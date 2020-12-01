@@ -557,13 +557,20 @@ class KBFGSOptimizer(optim.Optimizer):
             
             if self.steps == 0:
                 self.H_A[m] = torch.eye(self.m_aa[m].size(0))
-                
-#                 print('self.g_G_cur[m].size()')
-#                 print(self.g_G_cur[m].size())
-                
                 self.H_G[m] = torch.eye(self.g_G_cur[m].size(0))
                 
-                print('need cuda?')
+                is_cuda = self.m_aa[m].is_cuda
+                
+                if is_cuda:
+                    self.H_A[m] = self.H_A[m].cuda()
+                    self.H_G[m] = self.H_G[m].cuda()
+                
+                
+                
+                
+                
+                
+#                 print('need cuda?')
             
             # compute BFGS for A here
             
@@ -573,10 +580,15 @@ class KBFGSOptimizer(optim.Optimizer):
             
             # for A
             
-#             print('self.m_aa[m].size()')
-#             print(self.m_aa[m].size())
-            
             # compute s
+            
+#             print('self.H_A[m].is_cuda')
+#             print(self.H_A[m].is_cuda)
+            
+#             print('self.mean_a[m].is_cuda')
+#             print(self.mean_a[m].is_cuda)
+            
+#             sys.exit()
             
 #             s_A = self.s_A[m]
             s_A = torch.mv(self.H_A[m], self.mean_a[m])
