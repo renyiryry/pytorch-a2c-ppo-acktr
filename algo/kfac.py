@@ -28,6 +28,12 @@ def _extract_patches(x, kernel_size, stride, padding):
 
 def compute_cov_a(a, classname, layer_info, fast_cnn):
     batch_size = a.size(0)
+    
+#     print('fast_cnn')
+#     print(fast_cnn)
+    
+#     print('a.size()')
+#     print(a.size())
 
     if classname == 'Conv2d':
         if fast_cnn:
@@ -36,12 +42,20 @@ def compute_cov_a(a, classname, layer_info, fast_cnn):
             a = a.mean(1)
         else:
             a = _extract_patches(a, *layer_info)
+            
+#             print('a.size()')
+#             print(a.size())
+            
             a = a.view(-1, a.size(-1)).div_(a.size(1)).div_(a.size(2))
     elif classname == 'AddBias':
         is_cuda = a.is_cuda
         a = torch.ones(a.size(0), 1)
         if is_cuda:
             a = a.cuda()
+            
+            
+#     print('a.size()')
+#     print(a.size())
 
     return a.t() @ (a / batch_size)
 
@@ -95,7 +109,8 @@ class KFACOptimizer(optim.Optimizer):
                  weight_decay=0,
                  fast_cnn=False,
                  Ts=1,
-                 Tf=10):
+                 Tf=10,
+                 if_homo=False):
         defaults = dict()
 
         def split_bias(module):
@@ -105,7 +120,8 @@ class KFACOptimizer(optim.Optimizer):
                 else:
                     split_bias(child)
 
-        split_bias(model)
+        if not if_homo:
+            split_bias(model)
 
         super(KFACOptimizer, self).__init__(model.parameters(), defaults)
 
@@ -135,6 +151,8 @@ class KFACOptimizer(optim.Optimizer):
 
         self.Ts = Ts
         self.Tf = Tf
+        
+        self.if_homo = if_homo
 
         self.optim = optim.SGD(
             model.parameters(),
@@ -142,6 +160,10 @@ class KFACOptimizer(optim.Optimizer):
             momentum=self.momentum)
 
     def _save_input(self, module, input):
+        
+#         print('torch.is_grad_enabled()')
+#         print(torch.is_grad_enabled())
+        
         if torch.is_grad_enabled() and self.steps % self.Ts == 0:
             classname = module.__class__.__name__
             layer_info = None
@@ -179,8 +201,8 @@ class KFACOptimizer(optim.Optimizer):
         for module in self.model.modules():
             classname = module.__class__.__name__
             if classname in self.known_modules:
-                assert not ((classname in ['Linear', 'Conv2d']) and module.bias is not None), \
-                                    "You must have a bias as a separate layer"
+#                 assert not ((classname in ['Linear', 'Conv2d']) and module.bias is not None), \
+#                                     "You must have a bias as a separate layer"
 
                 self.modules.append(module)
                 module.register_forward_pre_hook(self._save_input)
@@ -194,16 +216,37 @@ class KFACOptimizer(optim.Optimizer):
 
         updates = {}
         for i, m in enumerate(self.modules):
-            assert len(list(m.parameters())
-                       ) == 1, "Can handle only one parameter at the moment"
+#             assert len(list(m.parameters())
+#                        ) == 1, "Can handle only one parameter at the moment"
             classname = m.__class__.__name__
+    
+#             print('len(list(m.parameters())')
+#             print(len(list(m.parameters())))
+    
+    
             p = next(m.parameters())
+        
+#             print('p.size()')
+#             print(p.size())
+            
+            if self.if_homo:
+
+                assert len(list(m.parameters())) == 2
+                p_bias = list(m.parameters())[1]
+                
+#             print('p_bias.size()')
+#             print(p_bias.size())
 
             la = self.damping + self.weight_decay
 
             if self.steps % self.Tf == 0:
                 # My asynchronous implementation exists, I will add it later.
                 # Experimenting with different ways to this in PyTorch.
+                
+                
+#                 print('self.m_aa[m].size()')
+#                 print(self.m_aa[m].size())
+                
                 self.d_a[m], self.Q_a[m] = torch.symeig(
                     self.m_aa[m], eigenvectors=True)
                 self.d_g[m], self.Q_g[m] = torch.symeig(
@@ -211,11 +254,36 @@ class KFACOptimizer(optim.Optimizer):
 
                 self.d_a[m].mul_((self.d_a[m] > 1e-6).float())
                 self.d_g[m].mul_((self.d_g[m] > 1e-6).float())
+            
+#             if self.if_homo:
+            
+#                 print('len(p)')
+#                 print(len(p))
+                
+#                 sys.exit()
+            
+            
+#                 if classname == 'Conv2d':
+#                     p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
+#                 else:
+#                     p_grad_mat = p.grad.data
+#             else:
 
             if classname == 'Conv2d':
                 p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
             else:
                 p_grad_mat = p.grad.data
+            
+#             print('p_bias.grad.data.unsqueeze(1).size()')
+#             print(p_bias.grad.data.unsqueeze(1).size())
+            
+            if self.if_homo:
+                p_grad_mat = torch.cat(
+                    (p_grad_mat, p_bias.grad.data.unsqueeze(1)), dim=1
+                )
+                
+#             print('p_grad_mat.size()')
+#             print(p_grad_mat.size())
 
             v1 = self.Q_g[m].t() @ p_grad_mat @ self.Q_a[m]
             v2 = v1 / (
@@ -227,6 +295,10 @@ class KFACOptimizer(optim.Optimizer):
 
         vg_sum = 0
         for p in self.model.parameters():
+            
+#             print('p')
+#             print(p)
+            
             v = updates[p]
             vg_sum += (v * p.grad.data * self.lr * self.lr).sum()
 
