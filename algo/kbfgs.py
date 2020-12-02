@@ -7,6 +7,8 @@ import torch.optim as optim
 
 from utils import AddBias
 
+from algo.kfac import compute_cov_a
+
 # TODO: In order to make this code faster:
 # 1) Implement _extract_patches as a single cuda kernel
 # 2) Compute QR decomposition in a separate process
@@ -95,11 +97,8 @@ def _extract_patches(x, kernel_size, stride, padding):
     return x
 
 
-def compute_mean_a(a, classname, layer_info, fast_cnn):
+def compute_mean_a(a, classname, layer_info, fast_cnn, if_homo):
 #     batch_size = a.size(0)
-
-#     print('fast_cnn')
-#     print(fast_cnn)
 
     if classname == 'Conv2d':
         if fast_cnn:
@@ -116,17 +115,10 @@ def compute_mean_a(a, classname, layer_info, fast_cnn):
 #             print(a.size())
             
             a = _extract_patches(a, *layer_info)
+        
+            mean_a = a.mean(dim=(0,1,2))
             
-#             print('a.size()')
-#             print(a.size())
-            
-#             print('a.mean().size()')
-#             print(a.mean().size())
-            
-#             print('a.mean(dim=(0,1,2)).size()')
-#             print(a.mean(dim=(0,1,2)).size())
-            
-            return a.mean(dim=(0,1,2))
+#             return mean_a
             
 #             a = a.view(-1, a.size(-1)).div_(a.size(1)).div_(a.size(2))
             
@@ -143,39 +135,64 @@ def compute_mean_a(a, classname, layer_info, fast_cnn):
         if is_cuda:
             a = a.cuda()
             
+    else:
+        
+#         print('a.size()')
+#         print(a.size())
             
-#     print('classname')
-#     print(classname)
+            
+#         print('classname')
+#         print(classname)
             
             
-#     print('a.size()')
-#     print(a.size())
+        mean_a = a.mean(dim=0)
     
-#     print('a.mean(dim=0).size()')
-#     print(a.mean(dim=0).size())
+#     print('mean_a.size()')
+#     print(mean_a.size())
+    
+    if if_homo:
+        is_cuda = a.is_cuda
+        homo_one = torch.ones(1)
+        if is_cuda:
+            homo_one = homo_one.cuda()
+
+#         print('homo_one.size()')
+#         print(homo_one.size())
+        
+        mean_a = torch.cat((mean_a, homo_one), dim=0)
+        
+#         print('mean_a.size()')
+#         print(mean_a.size())
+    
+    
+    
+    
+    
+#     sys.exit()
 
 #     return a.t() @ (a / batch_size)
-    return a.mean(dim=0)
+    return mean_a
 
 
-def compute_cov_a(a, classname, layer_info, fast_cnn):
-    batch_size = a.size(0)
+# def compute_cov_a(a, classname, layer_info, fast_cnn):
+#     batch_size = a.size(0)
 
-    if classname == 'Conv2d':
-        if fast_cnn:
-            a = _extract_patches(a, *layer_info)
-            a = a.view(a.size(0), -1, a.size(-1))
-            a = a.mean(1)
-        else:
-            a = _extract_patches(a, *layer_info)
-            a = a.view(-1, a.size(-1)).div_(a.size(1)).div_(a.size(2))
-    elif classname == 'AddBias':
-        is_cuda = a.is_cuda
-        a = torch.ones(a.size(0), 1)
-        if is_cuda:
-            a = a.cuda()
+#     if classname == 'Conv2d':
+#         if fast_cnn:
+#             a = _extract_patches(a, *layer_info)
+#             a = a.view(a.size(0), -1, a.size(-1))
+#             a = a.mean(1)
+#         else:
+#             a = _extract_patches(a, *layer_info)
+#             a = a.view(-1, a.size(-1)).div_(a.size(1)).div_(a.size(2))
+#     elif classname == 'AddBias':
+#         is_cuda = a.is_cuda
+#         a = torch.ones(a.size(0), 1)
+#         if is_cuda:
+#             a = a.cuda()
 
-    return a.t() @ (a / batch_size)
+#     return a.t() @ (a / batch_size)
+
 
 # def compute_mean_g(g, classname, layer_info, fast_cnn):
 def compute_mean_g(g, classname, fast_cnn):
@@ -281,7 +298,8 @@ class KBFGSOptimizer(optim.Optimizer):
                  weight_decay=0,
                  fast_cnn=False,
                  Ts=1,
-                 Tf=10):
+                 Tf=10,
+                 if_homo=False):
         defaults = dict()
         
         print('model')
@@ -294,7 +312,8 @@ class KBFGSOptimizer(optim.Optimizer):
                 else:
                     split_bias(child)
 
-        split_bias(model)
+        if not if_homo:
+            split_bias(model)
 
 #         super(KFACOptimizer, self).__init__(model.parameters(), defaults)
         super(KBFGSOptimizer, self).__init__(model.parameters(), defaults)
@@ -337,6 +356,8 @@ class KBFGSOptimizer(optim.Optimizer):
         self.Ts = Ts
         self.Tf = Tf
         
+        self.if_homo = if_homo
+        
 #         print('self.momentum')
 #         print(self.momentum)
 
@@ -357,17 +378,18 @@ class KBFGSOptimizer(optim.Optimizer):
 #         if torch.is_grad_enabled() and self.steps % self.Ts == 0:
         if torch.is_grad_enabled() and self.steps % self.Ts == 0 and self.kbfgs_stats_cur:
             
-#             print('self.kbfgs_stats_cur')
-#             print(self.kbfgs_stats_cur)
-            
             classname = module.__class__.__name__
+        
+#             print('classname in _save_input')
+#             print(classname)
+        
             layer_info = None
             if classname == 'Conv2d':
                 layer_info = (module.kernel_size, module.stride,
                               module.padding)
 
             aa = compute_cov_a(input[0].data, classname, layer_info,
-                               self.fast_cnn)
+                               self.fast_cnn, self.if_homo)
             
             
 
@@ -377,7 +399,7 @@ class KBFGSOptimizer(optim.Optimizer):
 
             update_running_stat(aa, self.m_aa[module], self.stat_decay)
             
-            mean_a = compute_mean_a(input[0].data, classname, layer_info, self.fast_cnn)
+            mean_a = compute_mean_a(input[0].data, classname, layer_info, self.fast_cnn, self.if_homo)
             
             self.mean_a[module] = mean_a.clone()
             
@@ -461,8 +483,9 @@ class KBFGSOptimizer(optim.Optimizer):
             
             if classname in self.known_modules:
 #             if classname in self.kbfgs_modules:
-                assert not ((classname in ['Linear', 'Conv2d']) and module.bias is not None), \
-                                    "You must have a bias as a separate layer"
+
+#                 assert not ((classname in ['Linear', 'Conv2d']) and module.bias is not None), \
+#                                     "You must have a bias as a separate layer"
 
                 self.modules.append(module)
         
@@ -477,8 +500,8 @@ class KBFGSOptimizer(optim.Optimizer):
     def post_step(self):
         
         for i, m in enumerate(self.modules):
-            assert len(list(m.parameters())
-                       ) == 1, "Can handle only one parameter at the moment"
+#             assert len(list(m.parameters())
+#                        ) == 1, "Can handle only one parameter at the moment"
             
             classname = m.__class__.__name__
             
@@ -532,11 +555,17 @@ class KBFGSOptimizer(optim.Optimizer):
 
         updates = {}
         for i, m in enumerate(self.modules):
-            assert len(list(m.parameters())
-                       ) == 1, "Can handle only one parameter at the moment"
+            
+#             assert len(list(m.parameters())
+#                        ) == 1, "Can handle only one parameter at the moment"
+            
             classname = m.__class__.__name__
             
             p = next(m.parameters())
+            
+            if self.if_homo:
+                assert len(list(m.parameters())) == 2
+                p_bias = list(m.parameters())[1]
 
             la = self.damping + self.weight_decay
             
@@ -544,8 +573,18 @@ class KBFGSOptimizer(optim.Optimizer):
                 p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
             else:
                 p_grad_mat = p.grad.data
+                
+            if self.if_homo:
+                p_grad_mat = torch.cat(
+                    (p_grad_mat, p_bias.grad.data.unsqueeze(1)), dim=1
+                )
             
             if classname == 'AddBias':
+                
+                print('need to check if homo')
+                
+                sys.exit()
+                
 #                 print('use sgd')
                 
 #                 updates[p] = p.grad.data / la
@@ -581,14 +620,12 @@ class KBFGSOptimizer(optim.Optimizer):
             # for A
             
             # compute s
-            
-#             print('self.H_A[m].is_cuda')
-#             print(self.H_A[m].is_cuda)
-            
-#             print('self.mean_a[m].is_cuda')
-#             print(self.mean_a[m].is_cuda)
-            
-#             sys.exit()
+
+#             print('self.H_A[m].size()')
+#             print(self.H_A[m].size())
+        
+#             print('self.mean_a[m].size()')
+#             print(self.mean_a[m].size())
             
 #             s_A = self.s_A[m]
             s_A = torch.mv(self.H_A[m], self.mean_a[m])
@@ -604,7 +641,6 @@ class KBFGSOptimizer(optim.Optimizer):
             
             
 
-#             if self.steps % self.Tf == 0:
             if 0:
                 # My asynchronous implementation exists, I will add it later.
                 # Experimenting with different ways to this in PyTorch.
@@ -618,7 +654,11 @@ class KBFGSOptimizer(optim.Optimizer):
 
                 self.d_a[m].mul_((self.d_a[m] > 1e-6).float())
                 self.d_g[m].mul_((self.d_g[m] > 1e-6).float())
-
+                
+                
+            
+#             print('p_grad_mat.size()')
+#             print(p_grad_mat.size())
             
                 
 #             v1 = self.H_G[m].t() @ p_grad_mat @ self.H_A[m]
@@ -631,8 +671,27 @@ class KBFGSOptimizer(optim.Optimizer):
 #                 self.d_g[m].unsqueeze(1) * self.d_a[m].unsqueeze(0) + la)
 #             v = self.Q_g[m] @ v2 @ self.Q_a[m].t()
 
+
+#             print('p.size()')
+#             print(p.size())
+        
+#             print('p_bias.size()')
+#             print(p_bias.size())
+            
+#             print('v.size()')
+#             print(v.size())
+            
+            if self.if_homo:
+                v_bias = v[:, -1]
+                v = v[:, :-1]
+
             v = v.view(p.grad.data.size())
             updates[p] = v
+            
+            if self.if_homo:
+                updates[p_bias] = v_bias
+        
+            
             
 #         sys.exit()
 

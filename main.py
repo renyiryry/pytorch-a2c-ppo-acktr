@@ -23,7 +23,8 @@ args = get_args()
 
 # assert args.algo in ['a2c', 'ppo', 'acktr']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'kbfgs']
-assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs']
+# assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs']
+assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs-homo']
 
 if args.recurrent_policy:
     assert args.algo in ['a2c', 'ppo'], \
@@ -108,8 +109,9 @@ def main():
                                args.entropy_coef, eps=args.eps, acktr=True, if_homo=True)
     elif args.algo in ['kbfgs']:
         
-#         print('args.eps')
-#         print(args.eps)
+        agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
+                               args.entropy_coef, eps=args.eps, kbfgs=True)
+    elif args.algo in ['kbfgs-homo']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
                                args.entropy_coef, eps=args.eps, kbfgs=True, if_homo=True)
