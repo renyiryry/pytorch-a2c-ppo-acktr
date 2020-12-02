@@ -20,42 +20,69 @@ def _extract_patches(x, kernel_size, stride, padding):
     x = x.unfold(2, kernel_size[0], stride[0])
     x = x.unfold(3, kernel_size[1], stride[1])
     x = x.transpose_(1, 2).transpose_(2, 3).contiguous()
+    
+#     print('x.size()')
+#     print(x.size())
+    
     x = x.view(
         x.size(0), x.size(1), x.size(2),
         x.size(3) * x.size(4) * x.size(5))
     return x
 
 
-def compute_cov_a(a, classname, layer_info, fast_cnn):
+def compute_cov_a(a, classname, layer_info, fast_cnn, if_homo):
     batch_size = a.size(0)
-    
-#     print('fast_cnn')
-#     print(fast_cnn)
-    
-#     print('a.size()')
-#     print(a.size())
 
     if classname == 'Conv2d':
         if fast_cnn:
+            
+            print('need to check for homo')
+            sys.exit()
+            
             a = _extract_patches(a, *layer_info)
             a = a.view(a.size(0), -1, a.size(-1))
             a = a.mean(1)
         else:
             a = _extract_patches(a, *layer_info)
             
-#             print('a.size()')
+#             print('a.size() after extract')
 #             print(a.size())
             
+            if if_homo:
+                homo_ones = torch.ones(a.size(0), a.size(1), a.size(2), 1)
+                is_cuda = a.is_cuda
+                if is_cuda:
+                    homo_ones = homo_ones.cuda()
+                    
+                a = torch.cat((a, homo_ones), dim=3)
+                
+            
             a = a.view(-1, a.size(-1)).div_(a.size(1)).div_(a.size(2))
+        
     elif classname == 'AddBias':
         is_cuda = a.is_cuda
         a = torch.ones(a.size(0), 1)
         if is_cuda:
             a = a.cuda()
             
+    else:
+        
+#         print('classname')
+#         print(classname)
+        
+#         print('a.size()')
+#         print(a.size())
+        
+        if if_homo:
+            homo_ones = torch.ones(a.size(0), 1)
+            is_cuda = a.is_cuda
+            if is_cuda:
+                homo_ones = homo_ones.cuda()
+
+            a = torch.cat((a, homo_ones), dim=1)
             
-#     print('a.size()')
-#     print(a.size())
+#         print('a.size()')
+#         print(a.size())
 
     return a.t() @ (a / batch_size)
 
@@ -112,6 +139,9 @@ class KFACOptimizer(optim.Optimizer):
                  Tf=10,
                  if_homo=False):
         defaults = dict()
+        
+        print('model')
+        print(model)
 
         def split_bias(module):
             for mname, child in module.named_children():
@@ -126,6 +156,11 @@ class KFACOptimizer(optim.Optimizer):
         super(KFACOptimizer, self).__init__(model.parameters(), defaults)
 
         self.known_modules = {'Linear', 'Conv2d', 'AddBias'}
+        
+        if if_homo:
+            self.kfac_modules = {'Linear', 'Conv2d'}
+        else:
+            self.kfac_modules = {'Linear', 'Conv2d', 'AddBias'}
 
         self.modules = []
         self.grad_outputs = {}
@@ -172,7 +207,7 @@ class KFACOptimizer(optim.Optimizer):
                               module.padding)
 
             aa = compute_cov_a(input[0].data, classname, layer_info,
-                               self.fast_cnn)
+                               self.fast_cnn, self.if_homo)
 
             # Initialize buffers
             if self.steps == 0:
@@ -205,8 +240,10 @@ class KFACOptimizer(optim.Optimizer):
 #                                     "You must have a bias as a separate layer"
 
                 self.modules.append(module)
-                module.register_forward_pre_hook(self._save_input)
-                module.register_backward_hook(self._save_grad_output)
+    
+                if classname in self.kfac_modules:
+                    module.register_forward_pre_hook(self._save_input)
+                    module.register_backward_hook(self._save_grad_output)
 
     def step(self):
         # Add weight decay
@@ -234,8 +271,9 @@ class KFACOptimizer(optim.Optimizer):
                 assert len(list(m.parameters())) == 2
                 p_bias = list(m.parameters())[1]
                 
-#             print('p_bias.size()')
-#             print(p_bias.size())
+            
+            
+#             sys.exit()
 
             la = self.damping + self.weight_decay
 
@@ -289,9 +327,32 @@ class KFACOptimizer(optim.Optimizer):
             v2 = v1 / (
                 self.d_g[m].unsqueeze(1) * self.d_a[m].unsqueeze(0) + la)
             v = self.Q_g[m] @ v2 @ self.Q_a[m].t()
+            
+#             print('v.size()')
+#             print(v.size())
+            
+#             print('p.size()')
+#             print(p.size())
+            
+#             print('p_bias.size()')
+#             print(p_bias.size())
+            
+            if self.if_homo:
+                v_bias = v[:, -1]
+                
+                v = v[:, :-1]
+                
+#                 print('v.size()')
+#                 print(v.size())
+                
+#                 print('v_bias.size()')
+#                 print(v_bias.size())
 
             v = v.view(p.grad.data.size())
             updates[p] = v
+            
+            if self.if_homo:
+                updates[p_bias] = v_bias
 
         vg_sum = 0
         for p in self.model.parameters():
