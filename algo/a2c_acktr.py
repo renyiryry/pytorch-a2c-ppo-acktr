@@ -35,7 +35,12 @@ class A2C_ACKTR():
             self.optimizer = KFACOptimizer(actor_critic, damping=eps, if_homo=if_homo)
         elif kbfgs:
             
-            self.optimizer = KBFGSOptimizer(actor_critic, damping=eps, if_homo=if_homo)
+#             print('lr')
+#             print(lr)
+#             sys.exit()
+            
+#             self.optimizer = KBFGSOptimizer(actor_critic, damping=eps, if_homo=if_homo)
+            self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, damping=eps, if_homo=if_homo)
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)

@@ -358,6 +358,11 @@ class KBFGSOptimizer(optim.Optimizer):
         
         self.if_homo = if_homo
         
+        print('self.lr')
+        print(self.lr)
+        
+#         sys.exit()
+        
 #         print('self.momentum')
 #         print(self.momentum)
 

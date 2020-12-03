@@ -24,7 +24,8 @@ args = get_args()
 # assert args.algo in ['a2c', 'ppo', 'acktr']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'kbfgs']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs']
-assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs-homo']
+# assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs-homo']
+assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs', 'kbfgs-homo']
 
 if args.recurrent_policy:
     assert args.algo in ['a2c', 'ppo'], \
@@ -81,8 +82,8 @@ def main():
         base_kwargs={'recurrent': args.recurrent_policy})
     actor_critic.to(device)
     
-#     print('args.algo')
-#     print(args.algo)
+    print('args.lr')
+    print(args.lr)
 #     sys.exit()
 
     if args.algo == 'a2c':
@@ -110,11 +111,11 @@ def main():
     elif args.algo in ['kbfgs']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, eps=args.eps, kbfgs=True)
+                               args.entropy_coef, lr=args.lr, eps=args.eps, kbfgs=True)
     elif args.algo in ['kbfgs-homo']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, eps=args.eps, kbfgs=True, if_homo=True)
+                               args.entropy_coef, lr=args.lr, eps=args.eps, kbfgs=True, if_homo=True)
     else:
         print('unknown args.algo for ' + args.algo)
         sys.exit()
@@ -284,10 +285,12 @@ def main():
     print(os.listdir(args.log_dir))
     
 #     saving_dir_monitor = './result_monitor/' + args.env_name + '/' + args.algo + '/'
+
     saving_dir_monitor = './result_monitor/' +\
     args.env_name + '/' +\
     args.algo + '/' +\
-    'eps_' + str(args.eps) + '/' 
+    'eps_' + str(args.eps) + '/' +\
+    'lr_' + str(args.lr) + '/'
     
     if not os.path.isdir(saving_dir_monitor):
         os.makedirs(saving_dir_monitor)
