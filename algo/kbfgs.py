@@ -299,7 +299,8 @@ class KBFGSOptimizer(optim.Optimizer):
                  fast_cnn=False,
                  Ts=1,
                  Tf=10,
-                 if_homo=False):
+                 if_homo=False,
+                 if_clip=True):
         defaults = dict()
         
         print('model')
@@ -357,6 +358,7 @@ class KBFGSOptimizer(optim.Optimizer):
         self.Tf = Tf
         
         self.if_homo = if_homo
+        self.if_clip = if_clip
         
         print('self.lr')
         print(self.lr)
@@ -700,20 +702,29 @@ class KBFGSOptimizer(optim.Optimizer):
             
 #         sys.exit()
 
-        vg_sum = 0
-        for p in self.model.parameters():
-            v = updates[p]
-            vg_sum += (v * p.grad.data * self.lr * self.lr).sum()
+        if self.if_clip:
+            vg_sum = 0
+            for p in self.model.parameters():
+                v = updates[p]
+                vg_sum += (v * p.grad.data * self.lr * self.lr).sum()
 
-        nu = min(1, math.sqrt(self.kl_clip / vg_sum))
+            nu = min(1, math.sqrt(self.kl_clip / vg_sum))
 
         for p in self.model.parameters():
             v = updates[p]
             p.grad.data.copy_(v)
-            p.grad.data.mul_(nu)
+            
+            if self.if_clip:
+                p.grad.data.mul_(nu)
+        
+#         print('torch.norm(list(self.model.parameters())[0].grad)')
+#         print(torch.norm(list(self.model.parameters())[0].grad))
 
         # this is the SGD step
         self.optim.step()
+        
+#         print('torch.norm(list(self.model.parameters())[0].grad) after sgd')
+#         print(torch.norm(list(self.model.parameters())[0].grad))
         
         
         

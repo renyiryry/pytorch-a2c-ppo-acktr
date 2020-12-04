@@ -17,7 +17,8 @@ class A2C_ACKTR():
                  max_grad_norm=None,
                  acktr=False,
                  kbfgs=False,
-                 if_homo=False):
+                 if_homo=False,
+                 if_clip=True):
 
         self.actor_critic = actor_critic
         
@@ -35,12 +36,10 @@ class A2C_ACKTR():
             self.optimizer = KFACOptimizer(actor_critic, damping=eps, if_homo=if_homo)
         elif kbfgs:
             
-#             print('lr')
-#             print(lr)
-#             sys.exit()
-            
 #             self.optimizer = KBFGSOptimizer(actor_critic, damping=eps, if_homo=if_homo)
-            self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, damping=eps, if_homo=if_homo)
+#             self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, damping=eps, if_homo=if_homo)
+            self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, damping=eps, if_homo=if_homo,
+                                            if_clip=if_clip)
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
@@ -131,25 +130,32 @@ class A2C_ACKTR():
             values_next = values_next.view(num_steps, num_processes, 1)
             action_log_probs_next = action_log_probs_next.view(num_steps, num_processes, 1)
             
-#             print('rollouts.returns[:-1].size()')
-#             print(rollouts.returns[:-1].size())
-            
-#             print('values_next.size()')
-#             print(values_next.size())
+
         
             advantages_next = rollouts.returns[:-1] - values_next
             value_loss_next = advantages_next.pow(2).mean()
             
             action_loss_next = -(advantages_next.detach() * action_log_probs_next).mean()
             
+#             print('torch.norm(list(self.actor_critic.parameters())[0].grad) before zero grad')
+#             print(torch.norm(list(self.actor_critic.parameters())[0].grad))
+            
             self.optimizer.zero_grad()
+            
+#             print('torch.norm(list(self.actor_critic.parameters())[0].grad) after zero grad')
+#             print(torch.norm(list(self.actor_critic.parameters())[0].grad))
+            
+#             sys.exit()
 
             (value_loss_next * self.value_loss_coef + action_loss_next -
              dist_entropy_next * self.entropy_coef).backward()
             
-            
-            self.optimizer.post_step()
+#             print('torch.norm(list(self.actor_critic.parameters())[0].grad) after backward')
+#             print(torch.norm(list(self.actor_critic.parameters())[0].grad))
             
 #             sys.exit()
+            
+            
+            self.optimizer.post_step()
 
         return value_loss.item(), action_loss.item(), dist_entropy.item()
