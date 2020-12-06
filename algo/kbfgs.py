@@ -586,16 +586,21 @@ class KBFGSOptimizer(optim.Optimizer):
             
             # update momentum grad if needed
             if self.if_momentumGrad:
+                
+                grad_decay = 0.9
+                
                 if self.steps == 0:
                     self.m_grad[p] = p.grad.data.clone()
                 else:
-                    update_running_stat(p.grad.data, self.m_grad[p], 0.9)
+#                     update_running_stat(p.grad.data, self.m_grad[p], 0.9)
+                    update_running_stat(p.grad.data, self.m_grad[p], grad_decay)
                     
                 if self.if_homo:
                     if self.steps == 0:
                         self.m_grad[p_bias] = p_bias.grad.data.clone()
                     else:
-                        update_running_stat(p_bias.grad.data, self.m_grad[p_bias], 0.9)
+#                         update_running_stat(p_bias.grad.data, self.m_grad[p_bias], 0.9)
+                        update_running_stat(p_bias.grad.data, self.m_grad[p_bias], grad_decay)
             
             # specify p_grad_used
             if self.if_momentumGrad:
