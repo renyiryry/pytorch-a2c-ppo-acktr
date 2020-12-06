@@ -8,6 +8,7 @@ import torch.optim as optim
 from utils import AddBias
 
 from algo.kfac import compute_cov_a
+from algo.kfac import update_running_stat
 
 # TODO: In order to make this code faster:
 # 1) Implement _extract_patches as a single cuda kernel
@@ -266,11 +267,11 @@ def compute_cov_g(g, classname, layer_info, fast_cnn):
     return g_.t() @ (g_ / g.size(0))
 
 
-def update_running_stat(aa, m_aa, momentum):
-    # Do the trick to keep aa unchanged and not create any additional tensors
-    m_aa *= momentum / (1 - momentum)
-    m_aa += aa
-    m_aa *= (1 - momentum)
+# def update_running_stat(aa, m_aa, momentum):
+#     # Do the trick to keep aa unchanged and not create any additional tensors
+#     m_aa *= momentum / (1 - momentum)
+#     m_aa += aa
+#     m_aa *= (1 - momentum)
 
 
 class SplitBias(nn.Module):
@@ -300,7 +301,8 @@ class KBFGSOptimizer(optim.Optimizer):
                  Ts=1,
                  Tf=10,
                  if_homo=False,
-                 if_clip=True):
+                 if_clip=True,
+                 if_momentumGrad=False):
         defaults = dict()
         
         print('model')
@@ -343,6 +345,11 @@ class KBFGSOptimizer(optim.Optimizer):
         self.h_G_next = {}
         self.g_G_cur = {}
         self.g_G_next = {}
+        
+        if if_momentumGrad:
+            self.m_grad = {}
+            
+        self.grad_used = {}
 
         self.momentum = momentum
         self.stat_decay = stat_decay
@@ -359,6 +366,7 @@ class KBFGSOptimizer(optim.Optimizer):
         
         self.if_homo = if_homo
         self.if_clip = if_clip
+        self.if_momentumGrad = if_momentumGrad
         
         print('self.lr')
         print(self.lr)
@@ -576,14 +584,53 @@ class KBFGSOptimizer(optim.Optimizer):
 
             la = self.damping + self.weight_decay
             
-            if classname == 'Conv2d':
-                p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
+            # update momentum grad if needed
+            if self.if_momentumGrad:
+                if self.steps == 0:
+                    self.m_grad[p] = p.grad.data.clone()
+                else:
+                    update_running_stat(p.grad.data, self.m_grad[p], 0.9)
+                    
+                if self.if_homo:
+                    if self.steps == 0:
+                        self.m_grad[p_bias] = p_bias.grad.data.clone()
+                    else:
+                        update_running_stat(p_bias.grad.data, self.m_grad[p_bias], 0.9)
+            
+            # specify p_grad_used
+            if self.if_momentumGrad:
+#                 p_grad_used = self.m_grad[p]
+                self.grad_used[p] = self.m_grad[p]
+                
+                if self.if_homo:
+#                     p_bias_grad_used = self.m_grad[p_bias]
+                    self.grad_used[p_bias] = self.m_grad[p_bias]
             else:
-                p_grad_mat = p.grad.data
+#                 p_grad_used = p.grad.data
+                self.grad_used[p] = p.grad.data
+                
+                if self.if_homo:
+#                     p_bias_grad_used = p_bias.grad.data
+                    self.grad_used[p_bias] = p_bias.grad.data
+            
+            if classname == 'Conv2d':
+#                 p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
+#                 p_grad_mat = p_grad_used.view(p.grad.data.size(0), -1)
+                p_grad_mat = self.grad_used[p].view(p.grad.data.size(0), -1)
+            else:
+#                 p_grad_mat = p.grad.data
+#                 p_grad_mat = p_grad_used.data
+                p_grad_mat = self.grad_used[p].data
                 
             if self.if_homo:
+#                 p_grad_mat = torch.cat(
+#                     (p_grad_mat, p_bias.grad.data.unsqueeze(1)), dim=1
+#                 )
+#                 p_grad_mat = torch.cat(
+#                     (p_grad_mat, p_bias_grad_used.unsqueeze(1)), dim=1
+#                 )
                 p_grad_mat = torch.cat(
-                    (p_grad_mat, p_bias.grad.data.unsqueeze(1)), dim=1
+                    (p_grad_mat, self.grad_used[p_bias].unsqueeze(1)), dim=1
                 )
             
             if classname == 'AddBias':
@@ -706,8 +753,15 @@ class KBFGSOptimizer(optim.Optimizer):
             vg_sum = 0
             for p in self.model.parameters():
                 v = updates[p]
-                vg_sum += (v * p.grad.data * self.lr * self.lr).sum()
+#                 vg_sum += (v * p.grad.data * self.lr * self.lr).sum()
+                vg_sum += (v * self.grad_used[p] * self.lr * self.lr).sum()
+                
+#             print('vg_sum')
+#             print(vg_sum)
 
+#             print('math.sqrt(self.kl_clip / vg_sum)')
+#             print(math.sqrt(self.kl_clip / vg_sum))
+                
             nu = min(1, math.sqrt(self.kl_clip / vg_sum))
 
         for p in self.model.parameters():
@@ -716,9 +770,6 @@ class KBFGSOptimizer(optim.Optimizer):
             
             if self.if_clip:
                 p.grad.data.mul_(nu)
-        
-#         print('torch.norm(list(self.model.parameters())[0].grad)')
-#         print(torch.norm(list(self.model.parameters())[0].grad))
 
         # this is the SGD step
         self.optim.step()

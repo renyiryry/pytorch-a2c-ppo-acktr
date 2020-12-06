@@ -18,7 +18,8 @@ class A2C_ACKTR():
                  acktr=False,
                  kbfgs=False,
                  if_homo=False,
-                 if_clip=True):
+                 if_clip=True,
+                 if_momentumGrad=False):
 
         self.actor_critic = actor_critic
         
@@ -39,7 +40,7 @@ class A2C_ACKTR():
 #             self.optimizer = KBFGSOptimizer(actor_critic, damping=eps, if_homo=if_homo)
 #             self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, damping=eps, if_homo=if_homo)
             self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, damping=eps, if_homo=if_homo,
-                                            if_clip=if_clip)
+                                            if_clip=if_clip, if_momentumGrad=if_momentumGrad)
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
