@@ -86,6 +86,10 @@ def main():
     
     print('args.lr')
     print(args.lr)
+    
+#     print('args.stat_decay')
+#     print(args.stat_decay)
+    
 #     sys.exit()
 
     if args.algo == 'a2c':
@@ -113,21 +117,25 @@ def main():
     elif args.algo in ['kbfgs']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, lr=args.lr, eps=args.eps, kbfgs=True)
+                               args.entropy_coef, lr=args.lr, eps=args.eps,
+                               kbfgs=True, stat_decay=args.stat_decay)
     elif args.algo in ['kbfgs-homo']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, lr=args.lr, eps=args.eps, kbfgs=True, if_homo=True)
+                               args.entropy_coef, lr=args.lr, eps=args.eps,
+                               kbfgs=True, if_homo=True, stat_decay=args.stat_decay)
     elif args.algo in ['kbfgs-homo-momentumGrad']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, lr=args.lr, eps=args.eps, kbfgs=True, if_homo=True,
-                               if_momentumGrad=True)
+                               args.entropy_coef, lr=args.lr, eps=args.eps,
+                               kbfgs=True, if_homo=True,
+                               if_momentumGrad=True, stat_decay=args.stat_decay)
     elif args.algo in ['kbfgs-homo-noClip']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, lr=args.lr, eps=args.eps, kbfgs=True, if_homo=True,
-                               if_clip=False)
+                               args.entropy_coef, lr=args.lr, eps=args.eps,
+                               kbfgs=True, if_homo=True,
+                               if_clip=False, stat_decay=args.stat_decay)
     else:
         print('unknown args.algo for ' + args.algo)
         sys.exit()
@@ -302,7 +310,8 @@ def main():
     args.env_name + '/' +\
     args.algo + '/' +\
     'eps_' + str(args.eps) + '/' +\
-    'lr_' + str(args.lr) + '/'
+    'lr_' + str(args.lr) + '/' +\
+    'stat_decay_' + str(args.stat_decay) + '/'
     
     if not os.path.isdir(saving_dir_monitor):
         os.makedirs(saving_dir_monitor)

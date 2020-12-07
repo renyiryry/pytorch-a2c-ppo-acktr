@@ -587,6 +587,9 @@ class KBFGSOptimizer(optim.Optimizer):
             # update momentum grad if needed
             if self.if_momentumGrad:
                 
+                # 0.5 seems to be better than 0.9, why?
+                sys.exit()
+                
                 grad_decay = 0.9
                 
                 if self.steps == 0:
