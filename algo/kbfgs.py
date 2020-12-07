@@ -711,6 +711,12 @@ class KBFGSOptimizer(optim.Optimizer):
                 # compute y
 
                 y_A = torch.mv(self.m_aa[m], s_A) + damping_A * s_A
+                
+                if math.isnan(torch.dot(s_A, y_A).item()):
+                    print('math.isnan(torch.dot(s_A, y_A).item())')
+                    sys.exit()
+                
+#                 print(torch.sum(torch.isnan(s_A)))
 
                 # compute H_A
                 self.H_A[m] = BFGS_update(self.H_A[m].data, s_A.data, y_A.data)
