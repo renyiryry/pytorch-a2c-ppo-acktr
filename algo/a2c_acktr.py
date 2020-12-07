@@ -20,7 +20,8 @@ class A2C_ACKTR():
                  if_homo=False,
                  if_clip=True,
                  if_momentumGrad=False,
-                 stat_decay=0.99):
+                 stat_decay=0.99,
+                 if_invert_A=False):
 
         self.actor_critic = actor_critic
         
@@ -42,7 +43,9 @@ class A2C_ACKTR():
 #             self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, damping=eps, if_homo=if_homo)
             self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, stat_decay=stat_decay,
                                             damping=eps, if_homo=if_homo,
-                                            if_clip=if_clip, if_momentumGrad=if_momentumGrad)
+                                            if_clip=if_clip,
+                                            if_momentumGrad=if_momentumGrad,
+                                            if_invert_A=if_invert_A)
         else:
             # momentum = 0 (default), meaning that mini-batch grad is used, 
             # instead of moving average

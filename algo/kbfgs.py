@@ -302,7 +302,8 @@ class KBFGSOptimizer(optim.Optimizer):
                  Tf=10,
                  if_homo=False,
                  if_clip=True,
-                 if_momentumGrad=False):
+                 if_momentumGrad=False,
+                 if_invert_A=False):
         defaults = dict()
         
         print('model')
@@ -365,8 +366,10 @@ class KBFGSOptimizer(optim.Optimizer):
         self.Tf = Tf
         
         self.if_homo = if_homo
+        self.if_invert_A = if_invert_A
         self.if_clip = if_clip
         self.if_momentumGrad = if_momentumGrad
+        
         
         print('self.lr')
         print(self.lr)
@@ -666,38 +669,51 @@ class KBFGSOptimizer(optim.Optimizer):
                     self.H_A[m] = self.H_A[m].cuda()
                     self.H_G[m] = self.H_G[m].cuda()
                 
+            
+            damping_A = math.sqrt(la)
                 
+            if self.if_invert_A:
                 
+                if self.steps % self.Tf == 0:
+                    
+                    is_cuda = self.m_aa[m].is_cuda
+                    
+                    if is_cuda:
+                        m_aa_damped = self.m_aa[m] + damping_A * torch.eye(self.m_aa[m].size(0)).cuda()
+                    else:
+                    
+                        m_aa_damped = self.m_aa[m] + damping_A * torch.eye(self.m_aa[m].size(0))
+                    
+                    self.H_A[m] = torch.inverse(m_aa_damped)
                 
-                
-                
-#                 print('need cuda?')
+#                 sys.exit()
+            else:
             
-            # compute BFGS for A here
-            
-            
-            
-            # need s, y
-            
-            # for A
-            
-            # compute s
+                # compute BFGS for A here
 
-#             print('self.H_A[m].size()')
-#             print(self.H_A[m].size())
-        
-#             print('self.mean_a[m].size()')
-#             print(self.mean_a[m].size())
-            
-#             s_A = self.s_A[m]
-            s_A = torch.mv(self.H_A[m], self.mean_a[m])
-            
-            # compute y
-            
-            y_A = torch.mv(self.m_aa[m], s_A) + math.sqrt(la) * s_A
-            
-            # compute H_A
-            self.H_A[m] = BFGS_update(self.H_A[m].data, s_A.data, y_A.data)
+
+
+                # need s, y
+
+                # for A
+
+                # compute s
+
+    #             print('self.H_A[m].size()')
+    #             print(self.H_A[m].size())
+
+    #             print('self.mean_a[m].size()')
+    #             print(self.mean_a[m].size())
+
+    #             s_A = self.s_A[m]
+                s_A = torch.mv(self.H_A[m], self.mean_a[m])
+
+                # compute y
+
+                y_A = torch.mv(self.m_aa[m], s_A) + damping_A * s_A
+
+                # compute H_A
+                self.H_A[m] = BFGS_update(self.H_A[m].data, s_A.data, y_A.data)
         
             
             

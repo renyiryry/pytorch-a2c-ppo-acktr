@@ -27,7 +27,9 @@ args = get_args()
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs-homo']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs', 'kbfgs-homo']
 assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo',
-                     'kbfgs', 'kbfgs-homo', 'kbfgs-homo-momentumGrad', 'kbfgs-homo-noClip']
+                     'kbfgs', 'kbfgs-homo', 'kbfgs-homo-invertA',
+                     'kbfgs-homo-momentumGrad',
+                     'kbfgs-homo-noClip']
 
 if args.recurrent_policy:
     assert args.algo in ['a2c', 'ppo'], \
@@ -124,6 +126,12 @@ def main():
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
                                args.entropy_coef, lr=args.lr, eps=args.eps,
                                kbfgs=True, if_homo=True, stat_decay=args.stat_decay)
+    elif args.algo in ['kbfgs-homo-invertA']:
+        
+        agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
+                               args.entropy_coef, lr=args.lr, eps=args.eps,
+                               kbfgs=True, if_homo=True,
+                               stat_decay=args.stat_decay, if_invert_A=True)
     elif args.algo in ['kbfgs-homo-momentumGrad']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
