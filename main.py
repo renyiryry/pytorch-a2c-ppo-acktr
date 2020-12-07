@@ -26,7 +26,7 @@ args = get_args()
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs-homo']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs', 'kbfgs-homo']
-assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo',
+assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'acktr-homo-noEigen',
                      'kbfgs', 'kbfgs-homo', 'kbfgs-homo-invertA',
                      'kbfgs-homo-momentumGrad',
                      'kbfgs-homo-noClip']
@@ -115,7 +115,12 @@ def main():
                                args.entropy_coef, eps=args.eps, acktr=True)
     elif args.algo in ['acktr-homo']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, eps=args.eps, acktr=True, if_homo=True)
+                               args.entropy_coef, eps=args.eps, acktr=True,
+                               if_homo=True)
+    elif args.algo in ['acktr-homo-noEigen']:
+        agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
+                               args.entropy_coef, eps=args.eps, acktr=True,
+                               if_homo=True, if_eigen=False)
     elif args.algo in ['kbfgs']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,

@@ -137,7 +137,8 @@ class KFACOptimizer(optim.Optimizer):
                  fast_cnn=False,
                  Ts=1,
                  Tf=10,
-                 if_homo=False):
+                 if_homo=False,
+                 if_eigen=True):
         defaults = dict()
         
         print('model')
@@ -171,8 +172,12 @@ class KFACOptimizer(optim.Optimizer):
         self.steps = 0
 
         self.m_aa, self.m_gg = {}, {}
-        self.Q_a, self.Q_g = {}, {}
-        self.d_a, self.d_g = {}, {}
+        
+        if if_eigen:
+            self.Q_a, self.Q_g = {}, {}
+            self.d_a, self.d_g = {}, {}
+        else:
+            self.H_g, self.H_a = {}, {} 
 
         self.momentum = momentum
         self.stat_decay = stat_decay
@@ -188,6 +193,7 @@ class KFACOptimizer(optim.Optimizer):
         self.Tf = Tf
         
         self.if_homo = if_homo
+        self.if_eigen = if_eigen
 
         self.optim = optim.SGD(
             model.parameters(),
@@ -282,30 +288,36 @@ class KFACOptimizer(optim.Optimizer):
                 # Experimenting with different ways to this in PyTorch.
                 
                 
-#                 print('self.m_aa[m].size()')
-#                 print(self.m_aa[m].size())
+                if self.if_eigen:
                 
-                self.d_a[m], self.Q_a[m] = torch.symeig(
-                    self.m_aa[m], eigenvectors=True)
-                self.d_g[m], self.Q_g[m] = torch.symeig(
-                    self.m_gg[m], eigenvectors=True)
+                    self.d_a[m], self.Q_a[m] = torch.symeig(
+                        self.m_aa[m], eigenvectors=True)
+                    self.d_g[m], self.Q_g[m] = torch.symeig(
+                        self.m_gg[m], eigenvectors=True)
 
-                self.d_a[m].mul_((self.d_a[m] > 1e-6).float())
-                self.d_g[m].mul_((self.d_g[m] > 1e-6).float())
+                    self.d_a[m].mul_((self.d_a[m] > 1e-6).float())
+                    self.d_g[m].mul_((self.d_g[m] > 1e-6).float())
+                    
+                else:
+                    
+                    damping_a = math.sqrt(la)
+                    damping_g = math.sqrt(la)
+                    
+                    is_cuda = self.m_aa[m].is_cuda
+                    
+                    if is_cuda:
+                        m_aa_damped = self.m_aa[m] + damping_a * torch.eye(self.m_aa[m].size(0)).cuda()
+                        m_gg_damped = self.m_gg[m] + damping_g * torch.eye(self.m_gg[m].size(0)).cuda()
+                    else:
+                        m_aa_damped = self.m_aa[m] + damping_a * torch.eye(self.m_aa[m].size(0))
+                        m_gg_damped = self.m_gg[m] + damping_g * torch.eye(self.m_gg[m].size(0))
+                    
+                    self.H_a[m] = torch.inverse(m_aa_damped)
+                    self.H_g[m] = torch.inverse(m_gg_damped)
+                    
+#                     sys.exit()
             
-#             if self.if_homo:
-            
-#                 print('len(p)')
-#                 print(len(p))
-                
-#                 sys.exit()
-            
-            
-#                 if classname == 'Conv2d':
-#                     p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
-#                 else:
-#                     p_grad_mat = p.grad.data
-#             else:
+
 
             if classname == 'Conv2d':
                 p_grad_mat = p.grad.data.view(p.grad.data.size(0), -1)
@@ -320,22 +332,18 @@ class KFACOptimizer(optim.Optimizer):
                     (p_grad_mat, p_bias.grad.data.unsqueeze(1)), dim=1
                 )
                 
-#             print('p_grad_mat.size()')
-#             print(p_grad_mat.size())
 
-            v1 = self.Q_g[m].t() @ p_grad_mat @ self.Q_a[m]
-            v2 = v1 / (
-                self.d_g[m].unsqueeze(1) * self.d_a[m].unsqueeze(0) + la)
-            v = self.Q_g[m] @ v2 @ self.Q_a[m].t()
+            if self.if_eigen:
+
+                v1 = self.Q_g[m].t() @ p_grad_mat @ self.Q_a[m]
+                v2 = v1 / (
+                    self.d_g[m].unsqueeze(1) * self.d_a[m].unsqueeze(0) + la)
+                v = self.Q_g[m] @ v2 @ self.Q_a[m].t()
+                
+            else:
+                v = self.H_g[m].t() @ p_grad_mat @ self.H_a[m]
             
-#             print('v.size()')
-#             print(v.size())
-            
-#             print('p.size()')
-#             print(p.size())
-            
-#             print('p_bias.size()')
-#             print(p_bias.size())
+
             
             if self.if_homo:
                 v_bias = v[:, -1]
