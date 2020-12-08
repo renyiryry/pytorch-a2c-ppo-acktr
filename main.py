@@ -123,15 +123,17 @@ def main():
                                max_grad_norm=args.max_grad_norm)
     elif args.algo in ['acktr']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, eps=args.eps, acktr=True)
+                               args.entropy_coef, lr=args.lr, eps=args.eps,
+                               acktr=True, stat_decay=args.stat_decay)
     elif args.algo in ['acktr-homo']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, eps=args.eps, acktr=True,
-                               if_homo=True)
+                               args.entropy_coef, lr=args.lr, eps=args.eps,
+                               acktr=True,
+                               if_homo=True, stat_decay=args.stat_decay)
     elif args.algo in ['acktr-homo-noEigen']:
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
-                               args.entropy_coef, eps=args.eps, acktr=True,
-                               if_homo=True, if_eigen=False)
+                               args.entropy_coef, lr=args.lr, eps=args.eps, acktr=True,
+                               if_homo=True, stat_decay=args.stat_decay, if_eigen=False)
     elif args.algo in ['kbfgs']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,

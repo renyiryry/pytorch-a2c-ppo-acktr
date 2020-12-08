@@ -37,7 +37,8 @@ class A2C_ACKTR():
         assert acktr + kbfgs < 2
 
         if acktr:
-            self.optimizer = KFACOptimizer(actor_critic, damping=eps,
+            self.optimizer = KFACOptimizer(actor_critic, lr=lr, stat_decay=stat_decay,
+                                           damping=eps,
                                            if_homo=if_homo, if_eigen=if_eigen)
         elif kbfgs:
             
@@ -55,6 +56,16 @@ class A2C_ACKTR():
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
 
     def update(self, rollouts):
+        
+#         print('torch.norm(rollouts.obs)')
+#         print(torch.norm(rollouts.obs))
+        
+#         print('rollouts.obs.size()')
+#         print(rollouts.obs.size())
+        
+#         print('rollouts.actions.size()')
+#         print(rollouts.actions.size())
+        
         obs_shape = rollouts.obs.size()[2:]
         action_shape = rollouts.actions.size()[-1]
         num_steps, num_processes, _ = rollouts.rewards.size()
@@ -128,6 +139,11 @@ class A2C_ACKTR():
         if self.kbfgs:
             # perform another forward/backward pass
             
+#             print('torch.norm(rollouts.obs) in post step')
+#             print(torch.norm(rollouts.obs))
+            
+#             sys.exit()
+            
             self.optimizer.kbfgs_stats_cur = False
             self.optimizer.kbfgs_stats_next = True
             
@@ -165,11 +181,9 @@ class A2C_ACKTR():
             
 #             sys.exit()
             
-            
+#             print('disable post update for now')
             post_step_output = self.optimizer.post_step()
-            
             if post_step_output == -1:
-#                 sys.exit()
                 return [], [], [], -1
 
         return value_loss.item(), action_loss.item(), dist_entropy.item(), 0
