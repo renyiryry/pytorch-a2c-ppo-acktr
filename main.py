@@ -337,6 +337,11 @@ def main():
     'lr_' + str(args.lr) + '/' +\
     'stat_decay_' + str(args.stat_decay) + '/'
     
+    if os.path.isdir(saving_dir_monitor):
+        import shutil
+        
+        shutil.rmtree(saving_dir_monitor)
+    
     if not os.path.isdir(saving_dir_monitor):
         os.makedirs(saving_dir_monitor)
         
