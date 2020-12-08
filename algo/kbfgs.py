@@ -30,6 +30,22 @@ def double_damping(s, y, H, damping):
     
     yHy = torch.dot(y, Hy)
     
+#     if yHy.item() == 0:
+        
+#         print('torch.norm(y)')
+#         print(torch.norm(y))
+        
+#         print('torch.norm(Hy)')
+#         print(torch.norm(Hy))
+        
+#         print('s_T_y')
+#         print(s_T_y)
+        
+#         print('torch.norm(H)')
+#         print(torch.norm(H))
+        
+#         sys.exit()
+    
     sy_over_yHy_before = s_T_y.item() / yHy.item()
     
 #     if sy_over_yHy_before > alpha:
@@ -52,7 +68,42 @@ def double_damping(s, y, H, damping):
 #     alpla = math.sqrt(damping)
     mu_2 = damping
     
+#     if not (torch.dot(s, y + mu_2 * s) > 0):
+        
+#         print('torch.det(H)')
+#         print(torch.det(H))
+        
+#         print('H')
+#         print(H)
+        
+#         print('yHy.item()')
+#         print(yHy.item())
+        
+#         print('s_T_y.item()')
+#         print(s_T_y.item())
+        
+#         print('sy_over_yHy_before <= mu_1')
+#         print(sy_over_yHy_before <= mu_1)
+        
+#         print('torch.dot(s, y)')
+#         print(torch.dot(s, y))
+        
+#         sys.exit()
+    
     y = y + mu_2 * s
+    
+#     if not (torch.dot(s, y) > 0):
+        
+#         print('torch.dot(s, y)')
+#         print(torch.dot(s, y))
+        
+#         print('torch.norm(s)')
+#         print(torch.norm(s))
+        
+#         print('torch.norm(y)')
+#         print(torch.norm(y))
+        
+#         sys.exit()
     
     return s, y
 
@@ -64,10 +115,19 @@ def BFGS_update(H, s, y):
         print('rho_inv is nan')
         sys.exit()
     
-#     if not (rho_inv > 0):
-#         print('rho_inv')
-#         print(rho_inv)
+    if not (rho_inv > 0):
+        
+        print('torch.norm(s)')
+        print(torch.norm(s))
+        
+        print('torch.norm(y)')
+        print(torch.norm(y))
+        
+        print('rho_inv')
+        print(rho_inv)
 #         sys.exit()
+
+        return []
     
     assert rho_inv > 0
     
@@ -77,6 +137,16 @@ def BFGS_update(H, s, y):
     H_new = H.data +\
     (rho**2 * torch.dot(y, torch.mv(H, y)) + rho) * torch.ger(s, s) -\
     rho * (torch.ger(s, Hy) + torch.ger(Hy, s))
+    
+#     if torch.det(H_new) < 0:
+        
+#         print('H')
+#         print(H)
+        
+#         print('torch.det(H)')
+#         print(torch.det(H))
+        
+#         sys.exit()
     
     return H_new
     
@@ -560,10 +630,14 @@ class KBFGSOptimizer(optim.Optimizer):
 #             assert torch.dot(s_G, s_G) / torch.dot(s_G, y_G) <= 1 / math.sqrt(la)
 
             self.H_G[m] = BFGS_update(self.H_G[m].data, s_G.data, y_G.data)
+    
+            if len(self.H_G[m]) == 0:
+#                 sys.exit()
+
+                return -1
             
             
             
-#             sys.exit()
 
     def step(self):
         # Add weight decay
@@ -715,11 +789,12 @@ class KBFGSOptimizer(optim.Optimizer):
                 if math.isnan(torch.dot(s_A, y_A).item()):
                     print('math.isnan(torch.dot(s_A, y_A).item())')
                     sys.exit()
-                
-#                 print(torch.sum(torch.isnan(s_A)))
 
                 # compute H_A
                 self.H_A[m] = BFGS_update(self.H_A[m].data, s_A.data, y_A.data)
+                
+                if len(self.H_A[m]) == 0:
+                    sys.exit()
         
             
             

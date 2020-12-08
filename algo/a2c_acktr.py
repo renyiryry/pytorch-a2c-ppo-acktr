@@ -166,6 +166,10 @@ class A2C_ACKTR():
 #             sys.exit()
             
             
-            self.optimizer.post_step()
+            post_step_output = self.optimizer.post_step()
+            
+            if post_step_output == -1:
+#                 sys.exit()
+                return [], [], [], -1
 
-        return value_loss.item(), action_loss.item(), dist_entropy.item()
+        return value_loss.item(), action_loss.item(), dist_entropy.item(), 0
