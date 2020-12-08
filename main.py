@@ -21,6 +21,17 @@ from visualize import visdom_plot
 
 args = get_args()
 
+# print('args.env_name')
+# print(args.env_name)
+
+# print('args.num_processes')
+# print(args.num_processes)
+
+# sys.exit()
+
+if args.env_name == 'CartPole-v0':
+    assert args.num_processes == 1
+
 # assert args.algo in ['a2c', 'ppo', 'acktr']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'kbfgs']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs']
