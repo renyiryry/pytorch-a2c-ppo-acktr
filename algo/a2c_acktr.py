@@ -21,6 +21,9 @@ class A2C_ACKTR():
                  if_clip=True,
                  if_momentumGrad=False,
                  stat_decay=0.99,
+                 stat_decay_A=0.99,
+                 stat_decay_G=0.0,
+                 if_decoupled_decay=False,
                  if_invert_A=False,
                  if_eigen=True):
 
@@ -42,9 +45,21 @@ class A2C_ACKTR():
                                            if_homo=if_homo, if_eigen=if_eigen)
         elif kbfgs:
             
-#             self.optimizer = KBFGSOptimizer(actor_critic, damping=eps, if_homo=if_homo)
+            print('stat_decay_A')
+            print(stat_decay_A)
+            
+            print('stat_decay_G')
+            print(stat_decay_G)
+            
+#             sys.exit()
+            
+
 #             self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, damping=eps, if_homo=if_homo)
-            self.optimizer = KBFGSOptimizer(actor_critic, lr=lr, stat_decay=stat_decay,
+            self.optimizer = KBFGSOptimizer(actor_critic, lr=lr,
+                                            stat_decay=stat_decay,
+                                            stat_decay_A=stat_decay_A,
+                                            stat_decay_G=stat_decay_G,
+                                            if_decoupled_decay=if_decoupled_decay,
                                             damping=eps, if_homo=if_homo,
                                             if_clip=if_clip,
                                             if_momentumGrad=if_momentumGrad,

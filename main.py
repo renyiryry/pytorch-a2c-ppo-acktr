@@ -38,7 +38,8 @@ if args.env_name == 'CartPole-v0':
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs-homo']
 # assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'kbfgs', 'kbfgs-homo']
 assert args.algo in ['a2c', 'ppo', 'acktr', 'acktr-homo', 'acktr-homo-noEigen',
-                     'kbfgs', 'kbfgs-homo', 'kbfgs-homo-invertA',
+                     'kbfgs', 'kbfgs-homo',
+                     'kbfgs-homo-invertA', 'kbfgs-homo-invertA-decoupledDecay',
                      'kbfgs-homo-momentumGrad',
                      'kbfgs-homo-noClip']
 
@@ -150,6 +151,16 @@ def main():
                                args.entropy_coef, lr=args.lr, eps=args.eps,
                                kbfgs=True, if_homo=True,
                                stat_decay=args.stat_decay, if_invert_A=True)
+        
+    elif args.algo in ['kbfgs-homo-invertA-decoupledDecay']:
+        
+        agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,
+                               args.entropy_coef, lr=args.lr, eps=args.eps,
+                               kbfgs=True, if_homo=True,
+                               stat_decay_A=args.stat_decay_A,
+                               stat_decay_G=args.stat_decay_G, 
+                               if_invert_A=True,
+                               if_decoupled_decay=True)
     elif args.algo in ['kbfgs-homo-momentumGrad']:
         
         agent = algo.A2C_ACKTR(actor_critic, args.value_loss_coef,

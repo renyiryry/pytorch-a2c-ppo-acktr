@@ -363,6 +363,9 @@ class KBFGSOptimizer(optim.Optimizer):
                  lr=0.25,
                  momentum=0.9,
                  stat_decay=0.99,
+                 stat_decay_A=0.99,
+                 stat_decay_G=0.0,
+                 if_decoupled_decay=False,
                  kl_clip=0.001,
 #                  damping=1e-2,
                  damping=1e-1,
@@ -423,7 +426,15 @@ class KBFGSOptimizer(optim.Optimizer):
         self.grad_used = {}
 
         self.momentum = momentum
-        self.stat_decay = stat_decay
+        
+        if if_decoupled_decay:
+            self.stat_decay_A = stat_decay_A
+            self.stat_decay_G = stat_decay_G
+        else:
+            self.stat_decay_A = stat_decay
+            self.stat_decay_G = stat_decay
+        
+#         self.stat_decay = stat_decay
 
         self.lr = lr
         self.kl_clip = kl_clip
@@ -484,8 +495,13 @@ class KBFGSOptimizer(optim.Optimizer):
             # Initialize buffers
             if self.steps == 0:
                 self.m_aa[module] = aa.clone()
+                
+#             print('self.stat_decay_A')
+#             print(self.stat_decay_A)
+#             sys.exit()
 
-            update_running_stat(aa, self.m_aa[module], self.stat_decay)
+#             update_running_stat(aa, self.m_aa[module], self.stat_decay)
+            update_running_stat(aa, self.m_aa[module], self.stat_decay_A)
             
             mean_a = compute_mean_a(input[0].data, classname, layer_info, self.fast_cnn, self.if_homo)
             
@@ -510,14 +526,19 @@ class KBFGSOptimizer(optim.Optimizer):
                 if self.steps == 0:
                     self.h_G_cur[module] = mean_h.clone()
                     
-                update_running_stat(mean_h, self.h_G_cur[module], self.stat_decay)
+#                 print('self.stat_decay_G')
+#                 print(self.stat_decay_G)
+#                 sys.exit()
+                    
+#                 update_running_stat(mean_h, self.h_G_cur[module], self.stat_decay)
+                update_running_stat(mean_h, self.h_G_cur[module], self.stat_decay_G)
             elif self.kbfgs_stats_next:
                 
-#                 if self.steps == 0:
                 if self.steps == 1:
                     self.h_G_next[module] = mean_h.clone()
                     
-                update_running_stat(mean_h, self.h_G_next[module], self.stat_decay)
+#                 update_running_stat(mean_h, self.h_G_next[module], self.stat_decay)
+                update_running_stat(mean_h, self.h_G_next[module], self.stat_decay_G)
             else:
                 print('should not reach here')
                 sys.exit()
@@ -553,14 +574,16 @@ class KBFGSOptimizer(optim.Optimizer):
                 if self.steps == 0:
                     self.g_G_cur[module] = mean_g.clone()
                     
-                update_running_stat(mean_g, self.g_G_cur[module], self.stat_decay)
+#                 update_running_stat(mean_g, self.g_G_cur[module], self.stat_decay)
+                update_running_stat(mean_g, self.g_G_cur[module], self.stat_decay_G)
             elif self.kbfgs_stats_next:
                 
 #                 if self.steps == 0:
                 if self.steps == 1:
                     self.g_G_next[module] = mean_g.clone()
                     
-                update_running_stat(mean_g, self.g_G_next[module], self.stat_decay)
+#                 update_running_stat(mean_g, self.g_G_next[module], self.stat_decay)
+                update_running_stat(mean_g, self.g_G_next[module], self.stat_decay_G)
             else:
                 print('should not reach here')
                 sys.exit()
@@ -816,8 +839,16 @@ class KBFGSOptimizer(optim.Optimizer):
                 
                 
             
-#             print('p_grad_mat.size()')
-#             print(p_grad_mat.size())
+#             print('torch.norm(p)')
+#             print(torch.norm(p))
+            
+#             print('torch.norm(self.m_aa[m])')
+#             print(torch.norm(self.m_aa[m]))
+            
+#             print('torch.norm(self.H_A[m])')
+#             print(torch.norm(self.H_A[m]))
+            
+#             sys.exit()
             
                 
 #             v1 = self.H_G[m].t() @ p_grad_mat @ self.H_A[m]
@@ -850,9 +881,10 @@ class KBFGSOptimizer(optim.Optimizer):
             if self.if_homo:
                 updates[p_bias] = v_bias
         
+#         if self.steps == 10:
+#         if self.steps == 1:
             
-            
-#         sys.exit()
+#             sys.exit()
 
         if self.if_clip:
             vg_sum = 0

@@ -11,6 +11,10 @@ def get_args():
                         help='learning rate (default: 7e-4)')
     parser.add_argument('--stat-decay', type=float, default=0.99,
                         help='kbfgs optimizer stat_decay (default: 0.99)')
+    parser.add_argument('--stat-decay-A', type=float, default=0.99,
+                        help='kbfgs optimizer stat_decay_A (default: 0.99)')
+    parser.add_argument('--stat-decay-G', type=float, default=0.0,
+                        help='kbfgs optimizer stat_decay_G (default: 0.0)')
     parser.add_argument('--eps', type=float, default=1e-5,
                         help='RMSprop optimizer epsilon (default: 1e-5)')
     parser.add_argument('--alpha', type=float, default=0.99,
