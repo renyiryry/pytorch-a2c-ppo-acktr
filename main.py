@@ -189,6 +189,8 @@ def main():
     
     record_rewards = []
     
+    record_num_steps = []
+    
     print('num_updates')
     print(num_updates)
 
@@ -225,8 +227,12 @@ def main():
 #                     print('total_num_steps')
 #                     print(total_num_steps)
                     
-#                     print('total_num_steps + step + 1')
-#                     print(total_num_steps + step + 1)
+#                     print('total_num_steps + (step + 1) * args.num_processes')
+#                     print(total_num_steps + (step + 1) * args.num_processes)
+                    
+                    record_num_steps.append(total_num_steps + (step + 1) * args.num_processes)
+                    
+#                     sys.exit()
 
             # If done then clean the history of observations.
             masks = torch.FloatTensor([[0.0] if done_ else [1.0]
@@ -337,7 +343,7 @@ def main():
     import pickle
     
     with open(saving_dir + 'result.pkl', 'wb') as handle:
-        pickle.dump({'record_rewards': record_rewards}, handle)
+        pickle.dump({'record_rewards': record_rewards, 'record_num_steps': record_num_steps}, handle)
         
     print('args.log_dir')
     print(args.log_dir)
