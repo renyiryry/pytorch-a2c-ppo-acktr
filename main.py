@@ -335,7 +335,14 @@ def main():
     print('record_rewards')
     print(record_rewards)
     
-    saving_dir = './result/' + args.env_name + '/' + args.algo + '/'
+    dir_with_params = args.env_name + '/' +\
+    args.algo + '/' +\
+    'eps_' + str(args.eps) + '/' +\
+    'lr_' + str(args.lr) + '/' +\
+    'stat_decay_' + str(args.stat_decay) + '/'
+    
+#     saving_dir = './result/' + args.env_name + '/' + args.algo + '/'
+    saving_dir = './result/' + dir_with_params
     
     if not os.path.isdir(saving_dir):
         os.makedirs(saving_dir)
@@ -353,12 +360,9 @@ def main():
     
 #     saving_dir_monitor = './result_monitor/' + args.env_name + '/' + args.algo + '/'
 
-    saving_dir_monitor = './result_monitor/' +\
-    args.env_name + '/' +\
-    args.algo + '/' +\
-    'eps_' + str(args.eps) + '/' +\
-    'lr_' + str(args.lr) + '/' +\
-    'stat_decay_' + str(args.stat_decay) + '/'
+    
+
+    saving_dir_monitor = './result_monitor/' + dir_with_params
     
     if os.path.isdir(saving_dir_monitor):
         import shutil
