@@ -193,6 +193,8 @@ def main():
     
     print('num_updates')
     print(num_updates)
+    
+    total_num_steps = 0
 
     start = time.time()
     for j in range(num_updates):
