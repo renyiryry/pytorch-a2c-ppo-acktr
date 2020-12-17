@@ -377,8 +377,7 @@ def main():
     print('saving_dir_monitor')
     print(saving_dir_monitor)
         
-    print('os.listdir(saving_dir_monitor)')
-    print(os.listdir(saving_dir_monitor))
+    
     
     import shutil
     
@@ -395,13 +394,25 @@ def main():
         if os.path.isfile(full_file_name):
             shutil.copy(full_file_name, saving_dir_monitor)
             
+#     print('os.listdir(saving_dir_monitor)')
+#     print(os.listdir(saving_dir_monitor))
+    
+#     print('len(os.listdir(saving_dir_monitor))')
+#     print(len(os.listdir(saving_dir_monitor)))
+    
+#     print('args.num_processes')
+#     print(args.num_processes)
+    
+    assert len(os.listdir(saving_dir_monitor)) == args.num_processes
+    
+#     sys.exit()
+            
         
         
 #     full_file_name = os.path.join(src, file_name)
 #     if os.path.isfile(full_file_name):
 #         shutil.copy(full_file_name, dest)
-    
-#     sys.exit()
+
 
 
 if __name__ == "__main__":
